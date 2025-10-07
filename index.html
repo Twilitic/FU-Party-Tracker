@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fabula Ultima Party Sheet</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --background-blue: #000080;
+            --window-bg: #1a1a5c;
+            --border-light: #ffffff;
+            --border-dark: #808080;
+            --text-yellow: #ffff00;
+            --text-cyan: #00ffff;
+            --hp-color: #32cd32; --hp-temp-color: #90ee90;
+            --mp-color: #4169e1; --mp-temp-color: #add8e6;
+            --ip-color: #ff8c00; --ip-temp-color: #ffd700;
+            --crisis-color: #ef4444;
+        }
+
+        body {
+            /* Corrected font name and added monospace fallback */
+            font-family: 'Press Start 2P', monospace;
+            background-color: var(--background-blue);
+            color: white;
+            image-rendering: pixelated;
+            background-size: cover;
+            background-position: center;
+            overflow: hidden;
+        }
+
+        .jrpg-window {
+            background-color: var(--window-bg);
+            border: 4px solid;
+            border-image: linear-gradient(to bottom, var(--border-light), var(--border-dark)) 1;
+            box-shadow: 0 0 0 4px #000;
+            padding: 0.5rem; /* Base padding for mobile */
+        }
+        @media (min-width: 768px) { /* md breakpoint */
+            .jrpg-window {
+                padding: 0.75rem;
+            }
+        }
+
+
+        .progress-bar-container {
+            background-color: #000;
+            border: 2px solid var(--border-dark);
+            height: 20px;
+            width: 100%;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .progress-bar {
+            height: 100%;
+            transition: width 0.3s ease-in-out, background-color 0.3s ease-in-out;
+            position: absolute;
+            left: 0;
+            top: 0;
+        }
+        
+        .menu-item, .action-button {
+            -webkit-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        
+        .menu-item:hover, .action-button:hover {
+            background-color: #3a3a8c;
+            cursor: pointer;
+        }
+
+        .status-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            padding: 2px;
+            background-color: rgba(0,0,0,0.5);
+            cursor: pointer;
+        }
+        .status-icon svg { opacity: 0.3; }
+        .status-icon.active svg { opacity: 1; }
+        
+        .modal-backdrop {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 100;
+        }
+        
+        .modal-content-full { width: 100%; height: 100%; }
+
+        .modal-content::-webkit-scrollbar, .scrollable-menu::-webkit-scrollbar { width: 8px; }
+        .modal-content::-webkit-scrollbar-track, .scrollable-menu::-webkit-scrollbar-track { background: #000; }
+        .modal-content::-webkit-scrollbar-thumb, .scrollable-menu::-webkit-scrollbar-thumb { background-color: var(--border-dark); border: 2px solid var(--border-light); }
+
+        input, select, textarea {
+            background-color: #000;
+            border: 2px solid var(--border-light);
+            color: white; padding: 0.25rem;
+            font-family: 'Press Start 2P', monospace;
+            width: 100%;
+            font-size: 0.7rem; /* Smaller base font size for inputs */
+        }
+        @media (min-width: 640px) { /* sm breakpoint */
+            input, select, textarea {
+                font-size: 0.75rem;
+            }
+        }
+        input[type="color"] { padding: 0; border: none; height: 30px; width: 50px; }
+        input[type="range"] { padding: 0; }
+        
+        .die-value {
+            font-weight: bold;
+            font-size: 0.7rem;
+            text-shadow: 1px 1px 1px #000;
+        }
+        .portrait-container { position: relative; }
+        .portrait-container.crisis::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(255, 0, 0, 0.3);
+            pointer-events: none;
+            animation: crisis-flash 1.5s infinite;
+        }
+        @keyframes crisis-flash {
+            0%, 100% { box-shadow: 0 0 8px 4px rgba(255,0,0,0.5); }
+            50% { box-shadow: 0 0 4px 2px rgba(255,0,0,0.2); }
+        }
+        .breadcrumb-item {
+            cursor: pointer;
+        }
+        .breadcrumb-item:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body class="text-xs sm:text-sm md:text-base">
+
+    <div id="app-container" class="h-screen w-screen p-2 md:p-4 flex flex-col">
+        <div id="status-panels" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4 flex-shrink-0"></div>
+        <div id="command-menus" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4 mt-2 md:mt-4 flex-grow min-h-0"></div>
+        <div id="modal-container"></div>
+        <div class="absolute bottom-2 right-2 flex gap-2">
+             <button data-action="edit-mode-toggle" id="edit-mode-toggle" class="jrpg-window !p-2 action-button">Edit</button>
+             <button data-action="open-system-menu" class="jrpg-window !p-2 action-button">System</button>
+        </div>
+    </div>
+
+    <script>
+    window.onload = () => {
+        const AppState = { 
+            party: [], 
+            activeMenus: [ {path:[]}, {path:[]}, {path:[]}, {path:[]} ],
+            isEditMode: false, 
+            settings: { backgroundUrl: '', volume: 0.5, muted: false }, 
+            activeModal: null 
+        };
+
+        const STATUS_EFFECTS = {
+            slow: { name: 'Slow', color: '#60a5fa', icon: 'M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z' },
+            dazed: { name: 'Dazed', color: '#facc15', icon: 'M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.116 3.986 1.518 5.671c.28 1.136-.954 2.033-1.96 1.425L12 18.354 7.373 21.18c-1.006.608-2.24-.289-1.96-1.425l1.518-5.671-4.116-3.986c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z' },
+            weak: { name: 'Weak', color: '#a3a3a3', icon: 'M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z' },
+            shaken: { name: 'Shaken', color: '#6ee7b7', icon: 'M15.362 5.214A.75.75 0 0116 6v1.162a4.5 4.5 0 01-4.298 4.496l-1.018.145A4.5 4.5 0 016 15.398V18a.75.75 0 01-1.5 0v-2.602a4.5 4.5 0 014.298-4.496l1.018-.145A4.5 4.5 0 0114.5 6.162V6a.75.75 0 01.862-.786z' },
+            poisoned: { name: 'Poisoned', color: '#a855f7', icon: 'M7.5 12.5l3-3m0 0l3-3m-3 3l-3 3m3-3l3 3M3 12a9 9 0 1118 0 9 9 0 01-18 0z' },
+            enraged: { name: 'Enraged', color: '#ef4444', icon: 'M15.362 5.214A.75.75 0 0116 6v1.162a4.5 4.5 0 01-4.298 4.496l-1.018.145A4.5 4.5 0 016 15.398V18a.75.75 0 01-1.5 0v-2.602a4.5 4.5 0 014.298-4.496l1.018-.145A4.5 4.5 0 0114.5 6.162V6a.75.75 0 01.862-.786z' }
+        };
+        const ATTRIBUTES = ['DEX', 'INS', 'MIG', 'WLP'];
+        const DICE = ['d6', 'd8', 'd10', 'd12'];
+        const COST_TYPES = ['None', 'HP', 'MP', 'IP', '1/3 Current HP'];
+        const DAMAGE_TYPES = ['Physical', 'Air', 'Bolt', 'Dark', 'Earth', 'Fire', 'Ice', 'Light', 'Poison', 'No Affinity'];
+        let sounds = null, soundInitialized = false, volumeNode;
+
+        function initializeSounds() {
+            if (soundInitialized) return;
+            soundInitialized = true;
+            if (typeof Tone === 'undefined') { console.error("Tone.js library not found."); return; }
+            try {
+                volumeNode = new Tone.Volume(Tone.gainToDb(AppState.settings.volume)).toDestination();
+                volumeNode.mute = AppState.settings.muted;
+                sounds = {
+                    navigate: new Tone.Synth({ oscillator: { type: "fmsquare", harmonicity: 0.5 }, envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.1 } }).connect(volumeNode),
+                    confirm: new Tone.Synth({ oscillator: { type: "triangle" }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.1, release: 0.2 } }).connect(volumeNode),
+                    cancel: new Tone.Synth({ oscillator: { type: "sine" }, envelope: { attack: 0.01, decay: 0.3, sustain: 0, release: 0.3 } }).connect(volumeNode),
+                    error: new Tone.Synth({ oscillator: { type: "sawtooth" }, envelope: { attack: 0.01, decay: 0.5, sustain: 0, release: 0.1 } }).connect(volumeNode),
+                };
+            } catch (e) { console.error("Could not initialize Tone.js sounds.", e); sounds = null; }
+        }
+
+        function playSound(sound) {
+            if (!soundInitialized) initializeSounds();
+            if (!sounds) return;
+            if (Tone.context.state !== 'running') { Tone.start().catch(e => console.error("Tone.js start failed:", e)); }
+            const soundMap = { 'navigate': 'A4', 'confirm': 'G5', 'cancel': 'G4', 'error': 'C3' };
+            if (sounds[sound]) sounds[sound].triggerAttackRelease(soundMap[sound], "8n");
+        }
+
+        function createDefaultCharacter(id) {
+            const defaultItem = { name: 'Default', costType: 'None', costValue: 0, effect: '', magicCheck: ['DEX', 'DEX', 0], damage: '', damageType: 'Physical', duration: '', target: '', type: 'item' };
+            return {
+                id, name: `Hero ${id + 1}`, portrait: `https://placehold.co/100x100/1a1a5c/ffffff?text=P${id + 1}`,
+                stats: { hp: { current: 50, max: 50 }, mp: { current: 20, max: 20 }, ip: { current: 6, max: 6 } },
+                def: 10, mdef: 10,
+                attributes: { DEX: 'd6', INS: 'd6', MIG: 'd6', WLP: 'd6' },
+                status: { slow: false, dazed: false, weak: false, shaken: false, poisoned: false, enraged: false },
+                commands: [
+                    { name: 'Attack', type: 'category', items: [{ ...defaultItem, name: 'Basic Attack', effect: '[[MIG]] vs Defense.' }] },
+                    { name: 'Magic', type: 'category', items: [{ ...defaultItem, name: 'Fire', costType: 'MP', costValue: 5, damageType: 'Fire', effect: 'Deals minor Fire damage.' }] },
+                    { name: 'Skills', type: 'category', items: [{ ...defaultItem, name: 'Blood Blade', costType: '1/3 Current HP', effect: 'Deals damage equal to HP spent.' }] },
+                    { name: 'Items', type: 'category', items: [
+                        { ...defaultItem, name: 'Remedy', costType: 'IP', costValue: 3, effect: 'Recover 50 HP.' },
+                        { ...defaultItem, name: 'Elixir', costType: 'IP', costValue: 3, effect: 'Recover 50 MP.' },
+                        { ...defaultItem, name: 'Tonic', costType: 'IP', costValue: 2, effect: 'Cure one status.' },
+                        { ...defaultItem, name: 'Magic Tent', costType: 'IP', costValue: 4, effect: 'Fully rest.' },
+                    ] },
+                ],
+                customization: { categoryColor: '#ffff00', itemColor: '#ffffff' }
+            };
+        }
+        
+        function init() {
+            document.body.addEventListener('click', initializeSounds, { once: true });
+            loadData();
+            document.body.addEventListener('click', handleGlobalClick);
+            renderAll();
+        }
+
+        function saveData() { try { localStorage.setItem('fabulaUltimaPartySheet', JSON.stringify(AppState)); } catch (e) { console.error("Failed to save data:", e); if(e.name === 'QuotaExceededError') {
+            // In a real app, you'd use a custom modal here instead of alert.
+            alert("Could not save data: Storage limit exceeded. Please export your data and clear storage, or use smaller images for portraits.");
+        } } }
+        function loadData() {
+            const savedData = localStorage.getItem('fabulaUltimaPartySheet');
+            if (savedData) {
+                const parsedData = JSON.parse(savedData);
+                Object.assign(AppState, parsedData);
+                // Data migration for older saves
+                AppState.party.forEach(p => {
+                    if(p.def === undefined) p.def = 10;
+                    if(p.mdef === undefined) p.mdef = 10;
+                    const migrate = (items) => {
+                       if(!items) return;
+                       items.forEach(i => {
+                         if(!i.type) i.type = i.items ? 'category' : 'item';
+                         if (i.items) migrate(i.items);
+                       });
+                    };
+                    migrate(p.commands);
+                });
+                if (AppState.settings.volume === undefined) AppState.settings.volume = 0.5;
+                if (AppState.settings.muted === undefined) AppState.settings.muted = false;
+            } else { AppState.party = Array.from({ length: 4 }, (_, i) => createDefaultCharacter(i)); }
+            while (AppState.party.length < 4) { AppState.party.push(createDefaultCharacter(AppState.party.length)); }
+            AppState.party = AppState.party.slice(0, 4);
+            AppState.activeMenus = Array(4).fill(null).map(() => ({path: []}));
+            AppState.isEditMode = false;
+        }
+
+        function renderAll() {
+            document.body.style.backgroundImage = AppState.settings.backgroundUrl ? `url('${AppState.settings.backgroundUrl}')` : '';
+            renderStatusPanels(); 
+            renderCommandMenus();
+            renderModal();
+            const editBtn = document.getElementById('edit-mode-toggle');
+            editBtn.textContent = AppState.isEditMode ? 'View' : 'Edit';
+            editBtn.classList.toggle('text-green-400', AppState.isEditMode);
+        }
+        
+        function getItemsFromPath(char, path) {
+            let currentLevel = char.commands;
+            for (const index of path) {
+                if (currentLevel[index] && currentLevel[index].items) {
+                    currentLevel = currentLevel[index].items;
+                } else {
+                    return char.commands; // Path is invalid, return root
+                }
+            }
+            return currentLevel;
+        }
+
+        function renderStatusPanels() {
+            const container = document.getElementById('status-panels');
+            container.innerHTML = AppState.party.map((char, index) => {
+                const isCrisis = char.stats.hp.current <= Math.floor(char.stats.hp.max / 2);
+                return `
+                <div id="status-panel-${index}" class="jrpg-window flex flex-col gap-2">
+                    <div class="flex justify-between items-start">
+                        <div class="flex gap-2 items-center">
+                            <div class="portrait-container ${isCrisis ? 'crisis' : ''}">
+                                <img src="${char.portrait}" alt="${char.name}" class="w-12 h-12 md:w-16 md:h-16 object-cover border-2 border-white flex-shrink-0" onerror="this.src='https://placehold.co/100x100/1a1a5c/ffffff?text=ERR'">
+                            </div>
+                            <h2 class="text-sm md:text-base truncate">${char.name}</h2>
+                        </div>
+                        <div class="text-xs text-right">
+                            <div>DEF: ${char.def}</div>
+                            <div>M.DEF: ${char.mdef}</div>
+                        </div>
+                    </div>
+                    <div class="space-y-1">
+                        ${['hp', 'mp', 'ip'].map(stat => {
+                            const s = char.stats[stat];
+                            const barColor = (stat === 'hp' && isCrisis) ? 'var(--crisis-color)' : `var(--${stat}-color)`;
+                            
+                            // HP Bar Overlay Logic
+                            if (stat === 'hp') {
+                                const basePercent = s.max > 0 ? (s.current / s.max) * 100 : 0;
+                                const tempPercent = s.current > s.max ? ((s.current - s.max) / s.max) * 100 : 0;
+                                const cappedBasePercent = Math.min(basePercent, 100);
+                                const cappedTempPercent = Math.min(basePercent - 100, 100);
+
+                                return `<div class="flex items-center gap-2">
+                                    <span class="text-xs md:text-sm" style="color:${barColor};">HP</span>
+                                    <div class="progress-bar-container flex-grow" data-action="adjust-stat" data-char-index="${index}" data-stat="hp">
+                                        <div class="progress-bar" style="width:${cappedBasePercent}%; background-color: ${barColor}; z-index: 1;"></div>
+                                        ${s.current > s.max ? `<div class="progress-bar" style="width:${cappedTempPercent}%; background-color: var(--hp-temp-color); z-index: 2;"></div>` : ''}
+                                    </div>
+                                    <span class="text-xs md:text-sm w-16 text-right">${s.current}/${s.max}</span>
+                                </div>`;
+                            }
+                            
+                            // Standard Bar Logic for MP/IP
+                            const percent = s.max > 0 ? (s.current / s.max) * 100 : 0;
+                            return `<div class="flex items-center gap-2">
+                                <span class="text-xs md:text-sm" style="color:${barColor};">${stat.toUpperCase()}</span>
+                                <div class="progress-bar-container flex-grow" data-action="adjust-stat" data-char-index="${index}" data-stat="${stat}">
+                                    <div class="progress-bar" style="width:${percent}%; background-color: ${barColor};"></div>
+                                </div>
+                                <span class="text-xs md:text-sm w-16 text-right">${s.current}/${s.max}</span>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                     <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs items-center">
+                         <div class="flex items-center gap-1"><span>DEX:</span><span class="die-value ${isAttributeAffected(char, 'DEX') ? 'text-red-500' : ''}">${getAttributeWithStatus(char, 'DEX')}</span>${renderStatusIcon(char, index, 'slow')}</div>
+                         <div class="flex items-center gap-1"><span>MIG:</span><span class="die-value ${isAttributeAffected(char, 'MIG') ? 'text-red-500' : ''}">${getAttributeWithStatus(char, 'MIG')}</span>${renderStatusIcon(char, index, 'weak')}</div>
+                         <div class="flex items-center gap-1"><span>INS:</span><span class="die-value ${isAttributeAffected(char, 'INS') ? 'text-red-500' : ''}">${getAttributeWithStatus(char, 'INS')}</span>${renderStatusIcon(char, index, 'dazed')}</div>
+                         <div class="flex items-center gap-1"><span>WLP:</span><span class="die-value ${isAttributeAffected(char, 'WLP') ? 'text-red-500' : ''}">${getAttributeWithStatus(char, 'WLP')}</span>${renderStatusIcon(char, index, 'shaken')}</div>
+                         <div class="flex items-center justify-center">${renderStatusIcon(char, index, 'enraged')}</div>
+                         <div class="flex items-center justify-center">${renderStatusIcon(char, index, 'poisoned')}</div>
+                     </div>
+                </div>`;
+            }).join('');
+        }
+        
+        function renderStatusIcon(char, charIndex, statusKey) {
+            if (!statusKey || !STATUS_EFFECTS[statusKey]) return '<div></div>';
+            const status = STATUS_EFFECTS[statusKey];
+            return `<div class="status-icon ${char.status[statusKey] ? 'active' : ''} ml-1" style="${char.status[statusKey] ? `background-color:${status.color};` : ''}" title="${status.name}" data-action="toggle-status" data-char-index="${charIndex}" data-status="${statusKey}">
+                        <svg class="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="${status.icon}" /></svg>
+                    </div>`;
+        }
+        
+        function isAttributeAffected(char, attr) {
+            return (char.status.slow && attr === 'DEX') || (char.status.dazed && attr === 'INS') ||
+                   (char.status.weak && attr === 'MIG') || (char.status.shaken && attr === 'WLP') ||
+                   (char.status.poisoned && (attr === 'MIG' || attr === 'WLP')) ||
+                   (char.status.enraged && (attr === 'DEX' || attr === 'INS'));
+        }
+        function getAttributeWithStatus(char, attr) {
+            let penalty = 0;
+            if (char.status.slow && attr === 'DEX') penalty++; if (char.status.dazed && attr === 'INS') penalty++;
+            if (char.status.weak && attr === 'MIG') penalty++; if (char.status.shaken && attr === 'WLP') penalty++;
+            if (char.status.poisoned && (attr === 'MIG' || attr === 'WLP')) penalty++; if (char.status.enraged && (attr === 'DEX' || attr === 'INS')) penalty++;
+            const i = DICE.indexOf(char.attributes[attr]); return DICE[Math.max(0, i - penalty)];
+        }
+
+        function formatCost(item) {
+            if (item.costType === 'None') return '';
+            if (item.costType === '1/3 Current HP') return '1/3 HP';
+            return `${item.costValue} ${item.costType}`;
+        }
+
+        function renderCommandMenus() {
+            const container = document.getElementById('command-menus');
+            container.innerHTML = AppState.party.map((char, index) => {
+                const menuState = AppState.activeMenus[index];
+                const currentItems = getItemsFromPath(char, menuState.path);
+                
+                let pathString = 'Main Menu';
+                let tempItems = char.commands;
+                if (menuState.path.length > 0) {
+                  pathString = '';
+                  let currentPath = [];
+                  for(const i of menuState.path){
+                    currentPath.push(i);
+                    if(pathString) pathString += ' > ';
+                    pathString += `<span class="breadcrumb-item" data-action="go-to-path" data-char-index="${index}" data-path="${currentPath.join(',')}">${tempItems[i].name}</span>`;
+                    tempItems = tempItems[i].items;
+                  }
+                }
+                
+                let content = `
+                    <h3 class="text-yellow-300 mb-2 text-xs truncate">${pathString}</h3>
+                    <div class="flex-grow overflow-y-auto pr-2 scrollable-menu">
+                        ${currentItems.map((item, itemIndex) => {
+                            if (item.type === 'category') {
+                                return `<div class="menu-item p-1 text-sm md:text-base" data-action="open-menu" data-char-index="${index}" data-item-index="${itemIndex}" style="color: ${char.customization.categoryColor};">${item.name}</div>`;
+                            }
+                            return `<div class="menu-item p-1 flex justify-between text-sm md:text-base" data-action="view-detail" data-char-index="${index}" data-item-name="${item.name}">
+                                        <span style="color: ${char.customization.itemColor};" class="truncate pr-2">${item.name}</span>
+                                        <span class="flex-shrink-0 text-xs md:text-sm">${formatCost(item)}</span>
+                                    </div>`;
+                        }).join('')}
+                    </div>
+                `;
+                
+                if (menuState.path.length > 0) {
+                        content += `<div class="mt-2 text-center"><span class="menu-item p-1 text-cyan-300 inline-block" data-action="go-back" data-char-index="${index}">..Back</span></div>`;
+                } else if (AppState.isEditMode) {
+                        content += `<div class="menu-item p-1 text-green-400 mt-auto" data-action="edit-character" data-char-index="${index}">..Edit Char</div>`;
+                }
+
+                return `<div id="command-menu-${index}" class="jrpg-window flex flex-col gap-2">${content}</div>`;
+            }).join('');
+        }
+
+        function renderModal() {
+            const container = document.getElementById('modal-container');
+            if (!AppState.activeModal) { container.innerHTML = ''; return; }
+            
+            const { type, data, position } = AppState.activeModal;
+            let content = '', modalClass = 'jrpg-window w-11/12 max-w-lg', modalStyle = '';
+
+            if (position) {
+                modalClass = 'jrpg-window absolute';
+                modalStyle = `top: ${position.y}px; left: ${position.x}px; transform: translate(-50%, -50%); max-width: 300px; z-index: 50;`;
+            }
+
+            if (type === 'system-menu') content = getSystemModalContent();
+            else if (type === 'target-selection') content = getTargetModalContent();
+            else if (type === 'adjust-stat') content = getAdjustStatModalContent(data);
+            else if (type === 'cure-status') content = getCureStatusModalContent(data);
+            else if (type === 'edit-character') {
+                 content = getEditCharacterModalContent(data);
+                 modalClass = 'jrpg-window modal-content-full';
+            }
+            else content = getDefaultModalContent(type, data);
+
+            container.innerHTML = `<div class="modal-backdrop" data-action="close-modal-backdrop"><div class="${modalClass}" style="${modalStyle}">${content}</div></div>`;
+            addModalEventListeners(type, data);
+        }
+        
+        function getEditCharacterModalContent(data) {
+             const char = data.character;
+             return `<div class="h-full flex flex-col"><h2 class="text-yellow-300 text-base md:text-lg mb-2 flex-shrink-0">Edit ${char.name}</h2>
+                 <div class="modal-content flex-grow overflow-y-auto text-sm flex flex-col lg:flex-row">
+                     <div class="w-full lg:w-1/3 pr-4 space-y-4">
+                         <div class="flex flex-col items-center gap-2">
+                             <div class="portrait-container">
+                                <img src="${char.portrait}" alt="${char.name}" class="w-24 h-24 object-cover border-2 border-white">
+                             </div>
+                             <button class="jrpg-window !p-1 action-button w-full mt-1 text-xs" data-action="upload-portrait" data-char-index="${data.charIndex}">Upload Portrait</button>
+                             <input type="file" class="hidden" id="portrait-upload-${data.charIndex}" accept="image/*">
+                         </div>
+                         <div><label class="text-xs sm:text-sm">Name:</label><input type="text" data-path="name" value="${char.name}"></div>
+                         <div class="grid grid-cols-2 gap-2">
+                             <div><label class="text-xs sm:text-sm">Current HP:</label><input type="number" data-path="stats.hp.current" value="${char.stats.hp.current}"></div>
+                             <div><label class="text-xs sm:text-sm">Max HP:</label><input type="number" data-path="stats.hp.max" value="${char.stats.hp.max}"></div>
+                             <div><label class="text-xs sm:text-sm">Current MP:</label><input type="number" data-path="stats.mp.current" value="${char.stats.mp.current}"></div>
+                             <div><label class="text-xs sm:text-sm">Max MP:</label><input type="number" data-path="stats.mp.max" value="${char.stats.mp.max}"></div>
+                             <div><label class="text-xs sm:text-sm">Current IP:</label><input type="number" data-path="stats.ip.current" value="${char.stats.ip.current}"></div>
+                             <div><label class="text-xs sm:text-sm">Max IP:</label><input type="number" data-path="stats.ip.max" value="${char.stats.ip.max}"></div>
+                             <div><label class="text-xs sm:text-sm">DEF:</label><input type="number" data-path="def" value="${char.def}"></div>
+                             <div><label class="text-xs sm:text-sm">M.DEF:</label><input type="number" data-path="mdef" value="${char.mdef}"></div>
+                         </div>
+                         <div class="grid grid-cols-2 md:grid-cols-4 gap-2 my-2">
+                             ${ATTRIBUTES.map(attr => `<div><label class="text-xs sm:text-sm">${attr}:</label><select class="w-full" data-path="attributes.${attr}">${DICE.map(d => `<option value="${d}" ${char.attributes[attr] === d ? 'selected' : ''}>${d}</option>`).join('')}</select></div>`).join('')}
+                         </div>
+                          <div class="grid grid-cols-2 gap-4 items-center my-2">
+                             <div><label class="text-xs sm:text-sm">Category Color:</label><input type="color" data-path="customization.categoryColor" value="${char.customization.categoryColor}"></div>
+                             <div><label class="text-xs sm:text-sm">Skill Color:</label><input type="color" data-path="customization.itemColor" value="${char.customization.itemColor}"></div>
+                         </div>
+                     </div>
+                     <div class="w-full lg:w-2/3 lg:pl-4 flex flex-col border-t-2 lg:border-t-0 lg:border-l-2 border-gray-600 pt-4 lg:pt-0">
+                         <h3 class="text-yellow-300 my-2">Commands</h3>
+                         <div class="border p-2 space-y-2 flex-grow overflow-y-auto scrollable-menu">
+                             ${renderEditLevel(char.commands, [])}
+                         </div>
+                     </div>
+                 </div>
+                 <div class="mt-4 flex justify-center flex-shrink-0"><button class="jrpg-window !p-2 action-button" data-action="close-modal">Close</button></div></div>`;
+        }
+
+        function getSystemModalContent() {
+            return `<h2 class="text-yellow-300 text-lg md:text-xl mb-4">System Menu</h2><div class="space-y-4"><div><label>Background URL:</label><input type="text" id="background-url-input" value="${AppState.settings.backgroundUrl}"></div><div class="flex gap-4 pt-2"><button class="jrpg-window !p-2 action-button" data-action="apply-settings">Apply</button><button class="jrpg-window !p-2 action-button" data-action="import-data">Import</button><button class="jrpg-window !p-2 action-button" data-action="export-data">Export</button><input type="file" id="import-file-input" class="hidden" accept=".json"></div>
+                 <div class="border-t-2 border-gray-500 pt-4 grid grid-cols-2 gap-2">
+                     <button class="jrpg-window !p-2 action-button w-full" data-action="use-magic-tent">🏕️ Magic Tent</button>
+                     <button class="jrpg-window !p-2 action-button w-full" data-action="refill-ip">Refill All IP</button>
+                 </div>
+                 <div class="border-t-2 border-gray-500 pt-4 space-y-2"><label for="volume-slider">Volume</label><input type="range" id="volume-slider" min="0" max="1" step="0.01" value="${AppState.settings.volume}"><button class="jrpg-window !p-2 action-button w-full" id="mute-btn">${AppState.settings.muted ? 'Unmute' : 'Mute'}</button></div></div><div class="mt-6 flex justify-center"><button class="jrpg-window !p-2 action-button" data-action="close-modal">Close</button></div>`;
+        }
+        function getTargetModalContent() {
+            return `<h2 class="text-yellow-300 text-lg mb-4">Select Target</h2><div class="grid grid-cols-2 gap-4">${AppState.party.map((char, index) => `<div class="flex flex-col items-center p-2 menu-item" data-action="select-target" data-target-char-index="${index}"><img src="${char.portrait}" class="w-20 h-20 object-cover border-2 border-white mb-2"><span>${char.name}</span></div>`).join('')}</div>`;
+        }
+        function getAdjustStatModalContent(data) {
+            return `<h2 class="text-yellow-300 text-lg mb-4">Adjust ${data.stat.toUpperCase()}</h2><input type="number" id="adjust-value" class="text-center" value="10"><div class="flex justify-around mt-4"><button class="jrpg-window !p-2 action-button" data-action="confirm-adjust-stat" data-op="add">Add</button><button class="jrpg-window !p-2 action-button" data-action="confirm-adjust-stat" data-op="sub">Subtract</button></div>`;
+        }
+        function getCureStatusModalContent(data) {
+            const char = AppState.party[data.targetCharIndex];
+            const activeStatuses = Object.entries(char.status).filter(([key, value]) => value);
+
+            if (activeStatuses.length === 0) {
+                return `<h2 class="text-yellow-300 text-lg mb-4">Cure Status</h2><p class="text-center">${char.name} has no status effects.</p><div class="mt-6 flex justify-center"><button class="jrpg-window !p-2 action-button" data-action="close-modal">Close</button></div>`
+            }
+
+            return `<h2 class="text-yellow-300 text-lg mb-4">Cure Status: ${char.name}</h2>
+                <div class="grid grid-cols-2 gap-2">
+                    ${activeStatuses.map(([statusKey, _]) => `
+                        <button class="jrpg-window !p-2 action-button" data-action="confirm-cure-status" data-status="${statusKey}">
+                           Cure ${STATUS_EFFECTS[statusKey].name}
+                        </button>
+                    `).join('')}
+                </div>`;
+        }
+        
+        function getDetailField(label, value) { return value ? `<div><span style="color:var(--text-cyan);" class="text-sm md:text-base">${label}:</span> <span class="text-sm md:text-base">${value}</span></div>` : ''; }
+        
+        function getDefaultModalContent(type, data) {
+            let mainContent = '', footer = `<div class="mt-6 flex justify-center"><button class="jrpg-window !p-2 action-button" data-action="close-modal">Close</button></div>`;
+            if (type === 'item-detail') {
+                 const i = data.item;
+                 mainContent = `<h2 style="color:var(--text-yellow);" class="text-lg md:text-xl">${i.name} (${AppState.party[data.charIndex].name})</h2>
+                     <div class="mt-4 space-y-2 text-base">
+                         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+                             <div>
+                               ${getDetailField('Cost', formatCost(i))} ${getDetailField('Target', i.target)} ${getDetailField('Duration', i.duration)}
+                             </div>
+                             <div>
+                               ${getDetailField('Check', i.magicCheck && i.magicCheck[0] ? `${i.magicCheck[0]} + ${i.magicCheck[1]} + ${i.magicCheck[2]}`: '')} ${getDetailField('Damage', i.damage)} ${getDetailField('Type', i.damageType)}
+                             </div>
+                         </div>
+                         ${getDetailField('Effect', i.effect)}
+                     </div>`;
+                 footer = `<div class="mt-6 flex justify-between items-center"><button class="jrpg-window !p-2 action-button" data-action="use-item" data-char-index="${data.charIndex}" data-item-name="${i.name}">Use</button><div class="flex justify-center flex-grow"><button class="jrpg-window !p-2 action-button" data-action="close-modal">Close</button></div></div>`;
+            } else if (type === 'edit-skill') {
+                const defaultSkill = { name: '', costType: 'None', costValue: 0, effect: '', magicCheck:['DEX','DEX',0], damage:'', damageType:'Physical', duration:'', target:'' };
+                const item = { ...defaultSkill, ...(data.item || {}), type: data.newType || data.item?.type || 'item' };
+
+                mainContent = `<h2 class="text-yellow-300 text-lg mb-4">${data.isNew ? `Add ${item.type === 'item' ? 'Skill' : 'Category'}` : `Edit ${item.name}`}</h2>
+                <div class="space-y-4 text-sm">
+                    <div><label>Name:</label><input type="text" id="skill-edit-name" value="${item.name}"></div>
+                    ${ item.type === 'item' ? `<fieldset class="border-2 border-dashed border-gray-600 p-2"><legend class="px-1">Cost</legend><div class="grid grid-cols-2 gap-4">
+                        <div><label>Type:</label><select id="skill-edit-cost-type">${COST_TYPES.map(ct => `<option value="${ct}" ${item.costType === ct ? 'selected':''}>${ct}</option>`).join('')}</select></div>
+                        <div><label>Value:</label><input type="number" id="skill-edit-cost-value" value="${item.costValue || 0}"></div>
+                    </div></fieldset>
+                    <fieldset class="border-2 border-dashed border-gray-600 p-2"><legend class="px-1">Action</legend><div class="grid grid-cols-2 gap-4">
+                        <div><label>Target:</label><input type="text" id="skill-edit-target" value="${item.target || ''}"></div>
+                        <div><label>Duration:</label><input type="text" id="skill-edit-duration" value="${item.duration || ''}"></div>
+                    </div></fieldset>
+                    <fieldset class="border-2 border-dashed border-gray-600 p-2"><legend class="px-1">Check & Damage</legend><div class="grid grid-cols-2 gap-4">
+                        <div><label>Magic Check:</label><div class="flex items-center gap-1">
+                            <select id="skill-edit-check1">${ATTRIBUTES.map(a => `<option ${item.magicCheck && item.magicCheck[0]===a?'selected':''}>${a}</option>`).join('')}</select>+
+                            <select id="skill-edit-check2">${ATTRIBUTES.map(a => `<option ${item.magicCheck && item.magicCheck[1]===a?'selected':''}>${a}</option>`).join('')}</select>+
+                            <input type="number" id="skill-edit-check-bonus" value="${(item.magicCheck && item.magicCheck[2]) || 0}" class="w-16 text-center">
+                        </div></div>
+                        <div><label>Damage:</label><input type="text" id="skill-edit-damage" value="${item.damage || ''}"></div>
+                        <div><label>Damage Type:</label><select id="skill-edit-damage-type">${DAMAGE_TYPES.map(d => `<option value="${d}" ${item.damageType === d ? 'selected': ''}>${d}</option>`).join('')}</select></div>
+                    </div></fieldset>
+                    <div><label>Effect/Description:</label><textarea id="skill-edit-effect" rows="3">${item.effect || ''}</textarea></div>` : ''}
+                </div>`;
+                footer = `<div class="mt-6 flex justify-between">${!data.isNew ? `<button class="jrpg-window !p-2 action-button bg-red-800" data-action="delete-skill">Delete</button>` : '<div></div>'}<div><button class="jrpg-window !p-2 action-button" data-action="save-skill">Save</button><button class="jrpg-window !p-2 action-button ml-2" data-action="close-skill-editor">Cancel</button></div></div>`;
+            }
+            return mainContent + footer;
+        }
+        function renderEditLevel(items, currentPath) {
+            let html = '';
+            items.forEach((item, index) => {
+                const newPath = [...currentPath, index];
+                html += `<div class="ml-${currentPath.length * 2} p-1 border-l-2 border-gray-600">
+                            <div class="flex items-center gap-2">
+                                <span class="flex-grow">${item.name}</span>
+                                <button class="text-blue-400 text-xs" data-action="edit-item" data-path="${newPath.join(',')}">Edit</button>
+                                <button class="text-red-500 text-xs" data-action="delete-item" data-path="${newPath.join(',')}">Del</button>
+                            </div>
+                            ${item.type === 'category' ? 
+                                `<div class="border-l-2 border-gray-700 ml-2 pl-2">
+                                    ${item.items ? renderEditLevel(item.items, newPath) : ''}
+                                    <div class="mt-2">
+                                        <button class="text-yellow-400 text-xs" data-action="add-item" data-path="${newPath.join(',')}" data-type="category">+ Add Subcategory</button>
+                                        <button class="text-green-400 text-xs ml-2" data-action="add-item" data-path="${newPath.join(',')}" data-type="item">+ Add Skill</button>
+                                    </div>
+                                </div>` 
+                            : ''}
+                         </div>`;
+            });
+             if(currentPath.length === 0) {
+                 html += `<div class="mt-2">
+                             <button class="text-yellow-400 text-xs" data-action="add-item" data-path="" data-type="category">+ Add Category</button>
+                             <button class="text-green-400 text-xs ml-2" data-action="add-item" data-path="" data-type="item">+ Add Skill</button>
+                          </div>`;
+             }
+            return html;
+        }
+
+        function addModalEventListeners(type, data) {
+             if (type === 'system-menu') {
+                 document.getElementById('volume-slider').addEventListener('input', (e) => { AppState.settings.volume = parseFloat(e.target.value); if(volumeNode) volumeNode.volume.value = Tone.gainToDb(AppState.settings.volume); saveData(); });
+                 document.getElementById('mute-btn').addEventListener('click', (e) => { AppState.settings.muted = !AppState.settings.muted; if(volumeNode) volumeNode.mute = AppState.settings.muted; e.target.textContent = AppState.settings.muted ? 'Unmute' : 'Mute'; saveData(); });
+                 document.getElementById('import-file-input').addEventListener('change', e => { if (!e.target.files[0]) return; const reader = new FileReader(); reader.onload = (event) => { try { const imported = JSON.parse(event.target.result); if (imported.party && imported.settings) { Object.assign(AppState, imported); AppState.activeModal = null; renderAll(); saveData(); playSound('confirm'); } } catch (err) { playSound('error'); } }; reader.readAsText(e.target.files[0]); });
+             } else if(type === 'edit-character'){
+                 const charIndex = data.charIndex;
+                 document.getElementById(`portrait-upload-${charIndex}`).addEventListener('change', e => { 
+                     if(e.target.files[0]) {
+                         resizeImage(e.target.files[0], 150, 150, (resizedDataUrl) => {
+                             AppState.party[charIndex].portrait = resizedDataUrl;
+                             saveData();
+                             renderModal(); 
+                         });
+                     }
+                 });
+                 document.querySelectorAll('input[data-path], select[data-path]').forEach(el => {
+                      el.addEventListener('change', e => handleEditCharacterChange(e, charIndex, false));
+                 });
+             } else if (type === 'adjust-stat') {
+                 const input = document.getElementById('adjust-value');
+                 input.focus();
+                 input.select();
+                 input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); document.querySelector('[data-action="confirm-adjust-stat"][data-op="add"]').click(); }});
+             }
+        }
+        
+        function handleEditCharacterChange(e, charIndex, isInputEvent) {
+            const path = e.target.dataset.path;
+            let value = e.target.type === 'number' ? parseInt(e.target.value) || 0 : e.target.value;
+            let obj = AppState.party[charIndex];
+            const keys = path.split('.');
+            keys.forEach((key, i) => {
+                if (i === keys.length - 1) {
+                    obj[key] = value;
+                } else {
+                    obj = obj[key];
+                }
+            });
+            
+            if (!isInputEvent) {
+                saveData();
+                renderStatusPanels(); // Re-render status panels to reflect changes immediately
+            }
+        }
+
+        
+        function resizeImage(file, maxWidth, maxHeight, callback) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width; let height = img.height;
+                    if (width > height) {
+                        if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; }
+                    } else {
+                        if (height > maxHeight) { width *= maxHeight / height; height = maxHeight; }
+                    }
+                    canvas.width = width; canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    callback(canvas.toDataURL('image/jpeg', 0.8));
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function handleGlobalClick(e) {
+            const target = e.target.closest('[data-action]');
+            if (!target) return;
+
+            const { action, charIndex, itemName, status, op, targetCharIndex, itemIndex, path, type } = target.dataset;
+            const cIndex = parseInt(charIndex);
+
+            const actions = {
+                'open-menu': () => { playSound('navigate'); AppState.activeMenus[cIndex].path.push(parseInt(itemIndex)); renderCommandMenus(); },
+                'go-back': () => { playSound('cancel'); AppState.activeMenus[cIndex].path.pop(); renderCommandMenus(); },
+                'go-to-path': () => { AppState.activeMenus[cIndex].path = path ? path.split(',').map(Number) : []; renderCommandMenus(); },
+                'view-detail': () => { 
+                    const currentItems = getItemsFromPath(AppState.party[cIndex], AppState.activeMenus[cIndex].path); 
+                    AppState.activeModal = {type:'item-detail', data:{item: currentItems.find(i=>i.name===itemName), charIndex: cIndex}}; 
+                    renderModal(); 
+                },
+                'use-item': () => { 
+                    const user = AppState.party[cIndex];
+                    const currentItems = getItemsFromPath(user, AppState.activeMenus[cIndex].path);
+                    const item = currentItems.find(i => i.name === itemName);
+                    if (!item) return;
+
+                    // Upfront cost check
+                    let canAfford = true;
+                    if (item.costType === '1/3 Current HP') {
+                        const cost = Math.floor(user.stats.hp.current / 3);
+                        if (user.stats.hp.current <= cost) canAfford = false;
+                    } else if (item.costType !== 'None') {
+                        const resLC = item.costType.toLowerCase();
+                        if (user.stats[resLC].current < item.costValue) canAfford = false;
+                    }
+
+                    if (!canAfford) {
+                        playSound('error');
+                        return;
+                    }
+
+                    if (item.name === 'Magic Tent') { 
+                        actions['use-magic-tent'](user); 
+                        return; 
+                    } 
+                    
+                    const effect = item.effect.toLowerCase();
+                    const requiresTarget = effect.includes('recover') || effect.includes('cure');
+                    
+                    if (requiresTarget) { 
+                        AppState.activeModal = {type:'target-selection', data:{item, userCharIndex: cIndex}}; 
+                        renderModal(); 
+                    } else { 
+                        applyAbilityEffect(user, item, cIndex); 
+                    } 
+                },
+                'select-target': () => { const {item, userCharIndex} = AppState.activeModal.data; applyAbilityEffect(AppState.party[userCharIndex], item, parseInt(targetCharIndex)); },
+                'toggle-status': () => { AppState.party[cIndex].status[status] = !AppState.party[cIndex].status[status]; saveData(); renderAll(); },
+                'adjust-stat': () => { const rect = target.getBoundingClientRect(); AppState.activeModal = {type:'adjust-stat', data:{charIndex:cIndex, stat:target.dataset.stat}, position: {x: rect.left + rect.width / 2, y: rect.top + rect.height / 2}}; renderModal(); },
+                'confirm-adjust-stat': () => {
+                    const {charIndex, stat} = AppState.activeModal.data; 
+                    let val = parseInt(document.getElementById('adjust-value').value) || 0; 
+                    const s = AppState.party[charIndex].stats[stat];
+                    let newVal = s.current + (op === 'add' ? val : -val);
+                    newVal = Math.max(0, newVal);
+                    if (stat !== 'hp') {
+                        newVal = Math.min(s.max, newVal);
+                    }
+                    s.current = newVal;
+                    AppState.activeModal = null; 
+                    renderAll(); 
+                    saveData(); 
+                },
+                'open-system-menu': () => { AppState.activeModal = { type: 'system-menu', data: {} }; renderModal(); },
+                'close-modal': () => { playSound('cancel'); AppState.activeModal = null; renderAll(); },
+                'close-skill-editor': () => { playSound('cancel'); AppState.activeModal.type = 'edit-character'; renderModal(); },
+                'close-modal-backdrop': () => { if(e.target.classList.contains('modal-backdrop') && !['edit-skill', 'edit-character'].includes(AppState.activeModal.type) ) actions['close-modal'](); },
+                'edit-character': () => { AppState.activeModal = {type:'edit-character', data:{character:AppState.party[cIndex], charIndex:cIndex}}; renderModal(); },
+                'upload-portrait': () => document.getElementById(`portrait-upload-${cIndex}`).click(),
+                'apply-settings': () => { playSound('confirm'); AppState.settings.backgroundUrl = document.getElementById('background-url-input').value; actions['close-modal'](); renderAll(); saveData(); },
+                'use-magic-tent': (user) => { 
+                    const isSystemUse = !user;
+                    if (isSystemUse) {
+                        playSound('confirm');
+                        AppState.party.forEach(char => { char.stats.hp.current = char.stats.hp.max; char.stats.mp.current = char.stats.mp.max; Object.keys(char.status).forEach(s => char.status[s] = false); }); 
+                        AppState.activeModal = null; renderAll(); saveData(); 
+                        return;
+                    }
+                    
+                    const tent = user.commands.find(c=>c.name==='Items')?.items.find(i=>i.name==='Magic Tent');
+                    if (tent && user.stats.ip.current >= tent.costValue) { 
+                        user.stats.ip.current -= tent.costValue;
+                        playSound('confirm');
+                        AppState.party.forEach(char => { char.stats.hp.current = char.stats.hp.max; char.stats.mp.current = char.stats.mp.max; Object.keys(char.status).forEach(s => char.status[s] = false); }); 
+                        AppState.activeModal = null; renderAll(); saveData(); 
+                    } else { playSound('error'); } 
+                },
+                'confirm-cure-status': () => {
+                    const { userCharIndex, targetCharIndex } = AppState.activeModal.data;
+                    const targetChar = AppState.party[targetCharIndex];
+                    if (targetChar.status[status]) {
+                        targetChar.status[status] = false;
+                        playSound('confirm');
+                        AppState.activeModal = null;
+                        renderAll();
+                        saveData();
+                    }
+                },
+                'refill-ip': () => { playSound('confirm'); AppState.party.forEach(p => p.stats.ip.current = p.stats.ip.max); renderAll(); saveData(); actions['close-modal'](); },
+                'import-data': () => document.getElementById('import-file-input').click(),
+                'export-data': () => { playSound('confirm'); const a = document.createElement('a'); a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(AppState, null, 2)); a.download = "fabula_ultima_party.json"; a.click(); },
+                'edit-item': () => { const { charIndex } = AppState.activeModal.data; const pathArr = path ? path.split(',').map(Number) : []; const parentItems = getItemsFromPath(AppState.party[charIndex], pathArr.slice(0, -1)); const item = parentItems[pathArr[pathArr.length-1]]; AppState.activeModal.type = 'edit-skill'; AppState.activeModal.data.item = JSON.parse(JSON.stringify(item)); AppState.activeModal.data.itemPath = pathArr; AppState.activeModal.data.isNew = false; renderModal(); },
+                'add-item': () => { const { charIndex } = AppState.activeModal.data; const pathArr = path ? path.split(',').map(Number) : []; AppState.activeModal.type = 'edit-skill'; AppState.activeModal.data.item = { type }; AppState.activeModal.data.itemPath = pathArr; AppState.activeModal.data.newType = type; AppState.activeModal.data.isNew = true; renderModal(); },
+                'delete-item': () => { const { charIndex } = AppState.activeModal.data; const pathArr = path.split(',').map(Number); const parentItems = getItemsFromPath(AppState.party[charIndex], pathArr.slice(0,-1)); const index = pathArr[pathArr.length-1]; if(parentItems && index > -1) { parentItems.splice(index, 1); saveData(); renderModal(); } },
+                'save-skill': () => {
+                    const { charIndex, itemPath, item, isNew, newType } = AppState.activeModal.data;
+                    const char = AppState.party[charIndex];
+                    
+                    const name = document.getElementById('skill-edit-name').value || 'New';
+                    let newItem;
+                    if ( (isNew && newType === 'category') || (!isNew && item.type === 'category') ) {
+                        newItem = { name, type: 'category', items: isNew ? [] : (item.items || []) };
+                    } else {
+                        newItem = {
+                            name, type: 'item',
+                            costType: document.getElementById('skill-edit-cost-type').value,
+                            costValue: parseInt(document.getElementById('skill-edit-cost-value').value) || 0,
+                            target: document.getElementById('skill-edit-target').value,
+                            duration: document.getElementById('skill-edit-duration').value,
+                            magicCheck: [ document.getElementById('skill-edit-check1').value, document.getElementById('skill-edit-check2').value, parseInt(document.getElementById('skill-edit-check-bonus').value) || 0 ],
+                            damage: document.getElementById('skill-edit-damage').value,
+                            damageType: document.getElementById('skill-edit-damage-type').value,
+                            effect: document.getElementById('skill-edit-effect').value || ''
+                        };
+                    }
+                    if (isNew) {
+                        const parent = getItemsFromPath(char, itemPath);
+                        parent.push(newItem);
+                    } else {
+                        const parent = getItemsFromPath(char, itemPath.slice(0,-1));
+                        const index = itemPath[itemPath.length-1];
+                        if(parent && index > -1) parent[index] = newItem;
+                    }
+                    saveData();
+                    actions['close-skill-editor']();
+                },
+                'edit-mode-toggle': () => { playSound('confirm'); AppState.isEditMode = !AppState.isEditMode; AppState.activeMenus = Array(4).fill(null).map(() => ({path: []})); renderAll(); }
+            };
+            if (actions[action]) actions[action]();
+        }
+        
+        function applyAbilityEffect(userChar, ability, targetCharIndex) {
+            let costPaid = false;
+            const userCharIndex = AppState.party.findIndex(p => p.id === userChar.id);
+
+            if (ability.costType === '1/3 Current HP') {
+                const cost = Math.floor(userChar.stats.hp.current / 3);
+                if (userChar.stats.hp.current > cost) { userChar.stats.hp.current -= cost; costPaid = true; }
+            } else if (ability.costType !== 'None') {
+                const resLC = ability.costType.toLowerCase();
+                if (userChar.stats[resLC].current >= ability.costValue) { userChar.stats[resLC].current -= ability.costValue; costPaid = true; }
+            } else { costPaid = true; }
+
+            if (!costPaid) { playSound('error'); return; }
+            
+            const targetChar = AppState.party[targetCharIndex];
+            const effect = ability.effect.toLowerCase();
+            
+            if (effect.includes('recover 50 hp')) {
+                targetChar.stats.hp.current += 50;
+            } else if (effect.includes('recover 50 mp')) {
+                targetChar.stats.mp.current = Math.min(targetChar.stats.mp.max, targetChar.stats.mp.current + 50);
+            } else if (effect.includes('cure one status')) {
+                const hasStatus = Object.values(targetChar.status).some(s => s);
+                if (hasStatus) {
+                    AppState.activeModal = { 
+                        type: 'cure-status', 
+                        data: {
+                            userCharIndex, 
+                            targetCharIndex,
+                        }
+                    };
+                    playSound('confirm');
+                    renderAll();
+                    saveData();
+                    return; 
+                } else {
+                    playSound('error'); 
+                     if (ability.costType !== 'None' && ability.costType !== '1/3 Current HP') {
+                        userChar.stats[ability.costType.toLowerCase()].current += ability.costValue;
+                    }
+                    return; 
+                }
+            }
+            
+            playSound('confirm');
+            AppState.activeModal = null;
+            renderAll();
+            saveData();
+        }
+        init();
+    };
+    </script>
+</body>
+</html>
+
