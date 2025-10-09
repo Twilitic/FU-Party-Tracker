@@ -891,8 +891,8 @@
                     // Prevent going below zero for all stats
                     newVal = Math.max(0, newVal);
 
-                    // ONLY when adding, cap MP and IP at their max. HP can exceed max.
-                    if (data.op === 'add' && (stat === 'mp' || stat === 'ip')) {
+                    // When adding, cap HP, MP, and IP at their max.
+                    if (data.op === 'add' && (stat === 'hp' || stat === 'mp' || stat === 'ip')) {
                         newVal = Math.min(newVal, s.max);
                     }
                     
