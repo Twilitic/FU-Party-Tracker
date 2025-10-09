@@ -783,12 +783,7 @@
         }
         function getDefaultModalContent(type, data) {
             let mainContent = '';
-            let footer = `
-                <div class="mt-6 flex justify-around items-center">
-                    <button class="jrpg-window !p-2 action-button" data-action="use-item" data-char-index="${data.charIndex}" data-item-name="${data.item.name}">Use</button>
-                    ${LocalUIState.isEditMode ? `<button class="jrpg-window !p-2 action-button" data-action="edit-item-from-detail">Edit</button>` : ''}
-                    <button class="jrpg-window !p-2 action-button" data-action="close-modal">Close</button>
-                </div>`;
+            let footer = '';
 
             if (type === 'item-detail') {
                 const i = data.item;
@@ -805,6 +800,12 @@
                             ${!isPreset && i.damageType && i.damageType !== 'None' ? getDetailField('Type', i.damageType) : ''}
                         </div>
                         <div class="border-t border-gray-600 pt-3">${getDetailField('Effect', i.effect)}</div>
+                    </div>`;
+                 footer = `
+                    <div class="mt-6 flex justify-around items-center">
+                        <button class="jrpg-window !p-2 action-button" data-action="use-item" data-char-index="${data.charIndex}" data-item-name="${data.item.name}">Use</button>
+                        ${LocalUIState.isEditMode ? `<button class="jrpg-window !p-2 action-button" data-action="edit-item-from-detail">Edit</button>` : ''}
+                        <button class="jrpg-window !p-2 action-button" data-action="close-modal">Close</button>
                     </div>`;
             } else if (type === 'info-screen') {
                 const char = AppState.party[data.charIndex];
@@ -1046,7 +1047,17 @@
                 'open-info-screen': () => { playSound('navigate'); LocalUIState.activeModal = { type: 'info-screen', data: { charIndex: cIndex } }; renderModal(); },
                 'adjust-stat': () => { playSound('navigate'); const panel = document.getElementById(`status-panel-${cIndex}`); const rect = panel.getBoundingClientRect(); LocalUIState.activeModal = {type:'adjust-stat', data:{charIndex:cIndex, stat:data.stat}, position: {x: rect.left + rect.width / 2, y: rect.top + rect.height / 2}}; renderModal(); },
                 'open-system-menu': () => { playSound('navigate'); LocalUIState.activeModal = { type: 'system-menu', data: {} }; renderModal(); },
-                'close-modal': () => { playSound('cancel'); LocalUIState.activeModal = null; if (!document.getElementById('app-container').classList.contains('hidden')) renderAll(); },
+                'close-modal': () => {
+                    playSound('cancel');
+                    if (LocalUIState.activeModal && LocalUIState.activeModal.type === 'admin-panel') {
+                        location.reload();
+                    } else {
+                        LocalUIState.activeModal = null;
+                        if (!document.getElementById('app-container').classList.contains('hidden')) {
+                            renderAll();
+                        }
+                    }
+                },
                 'close-skill-editor': () => {
                     playSound('cancel');
                     const { charIndex } = LocalUIState.activeModal.data;
@@ -1568,3 +1579,4 @@
     </script>
 </body>
 </html>
+
