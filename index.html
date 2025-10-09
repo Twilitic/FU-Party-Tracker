@@ -190,9 +190,16 @@
             const newPartyId = generatePartyId();
             partyId = newPartyId;
             isOfflineMode = false;
-            const defaultState = { party: Array.from({ length: 4 }, (_, i) => createDefaultCharacter(i)), settings: { backgroundUrl: '' } };
+            const defaultState = { 
+                party: Array.from({ length: 4 }, (_, i) => createDefaultCharacter(i)), 
+                settings: { backgroundUrl: '' }
+            };
             Object.assign(AppState, defaultState);
-            await db.collection('parties').doc(partyId).set(AppState);
+             const dataToSave = {
+                ...defaultState,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            await db.collection('parties').doc(partyId).set(dataToSave);
             joinParty(partyId);
         }
         async function handleJoinParty() {
@@ -205,21 +212,27 @@
             if (inputId.toLowerCase() === 'ooble-loodle bloodle-doo') {
                 playSound('confirm');
                 
-                // Manually transition views to show the app container where the modal will appear
                 document.getElementById('session-container').classList.add('hidden');
                 document.getElementById('app-container').classList.remove('hidden');
                 document.getElementById('app-container').classList.add('flex');
 
                 LocalUIState.activeModal = { type: 'admin-panel', data: { isLoading: true, sessions: [] } };
-                renderModal(); // Show loading state
+                renderModal(); 
                 try {
                     const querySnapshot = await db.collection('parties').get();
-                    const sessions = querySnapshot.docs.map(doc => doc.id);
+                    const sessions = querySnapshot.docs.map(doc => {
+                        const data = doc.data();
+                        return {
+                            id: doc.id,
+                            party: data.party || [],
+                            createdAt: data.createdAt ? data.createdAt.toDate().toLocaleDateString() : 'N/A'
+                        };
+                    });
                     LocalUIState.activeModal.data = { isLoading: false, sessions };
                 } catch(error) {
                     LocalUIState.activeModal.data = { isLoading: false, sessions: [], error: error.message };
                 }
-                renderModal(); // Re-render with sessions or error
+                renderModal();
             } else {
                 joinParty(inputId.toLowerCase());
             }
@@ -511,12 +524,18 @@
             } else {
                 content = `
                     <div class="space-y-2 max-h-96 overflow-y-auto scrollable-menu pr-2">
-                        ${sessions.map(id => `
-                            <div class="flex items-center justify-between p-2 bg-black/30">
-                                <span class="truncate">${id}</span>
-                                <div class="flex gap-2 flex-shrink-0">
-                                    <button class="jrpg-window !p-1 action-button" data-action="admin-join-session" data-party-id="${id}">Join</button>
-                                    <button class="jrpg-window !p-1 action-button bg-red-800" data-action="admin-delete-session-prompt" data-party-id="${id}">Delete</button>
+                        ${sessions.map(session => `
+                            <div class="p-2 bg-black/30">
+                                <div class="flex items-center justify-between">
+                                    <span class="truncate font-bold">${session.id}</span>
+                                    <div class="flex gap-2 flex-shrink-0">
+                                        <button class="jrpg-window !p-1 action-button" data-action="admin-join-session" data-party-id="${session.id}">Join</button>
+                                        <button class="jrpg-window !p-1 action-button bg-red-800" data-action="admin-delete-session-prompt" data-party-id="${session.id}">Delete</button>
+                                    </div>
+                                </div>
+                                <div class="text-sm text-gray-400 mt-1">
+                                    <p>Created: ${session.createdAt}</p>
+                                    <p class="truncate">Heroes: ${session.party.map(p => p.name).join(', ')}</p>
                                 </div>
                             </div>
                         `).join('')}
@@ -1000,7 +1019,7 @@
 
                     if (item.isHealing) {
                         item.healStat = document.getElementById('preset-edit-heal-stat').value;
-                        item.healValue = parseInt(document.getElementById('preset-edit-heal-value').value) || 0;
+                        item.healValue = parseInt(document.getElementById('skill-edit-heal-value').value) || 0;
                     }
                     parentList[index] = item;
                     saveData();
@@ -1044,7 +1063,7 @@
                 'go-to-path': () => { playSound('navigate'); LocalUIState.activeMenus[cIndex].path = data.path ? data.path.split(',').map(Number) : []; renderCommandMenus(); },
                 'view-detail': () => { playSound('select'); const currentItems = getItemsFromPath(AppState.party[cIndex], LocalUIState.activeMenus[cIndex].path); LocalUIState.activeModal = {type:'item-detail', data:{item: currentItems.find(i=>i.name===data.itemName), charIndex: cIndex}}; renderModal(); },
                 'set-font-size': () => { playSound('navigate'); LocalUIState.settings.fontSize = data.size; if (isOfflineMode) { saveData(); } renderAll(); },
-                'open-info-screen': () => { playSound('navigate'); LocalUIState.activeModal = { type: 'info-screen', data: { charIndex: cIndex } }; renderModal(); },
+                'open-info-screen': () => { playSound('info'); LocalUIState.activeModal = { type: 'info-screen', data: { charIndex: cIndex } }; renderModal(); },
                 'adjust-stat': () => { playSound('navigate'); const panel = document.getElementById(`status-panel-${cIndex}`); const rect = panel.getBoundingClientRect(); LocalUIState.activeModal = {type:'adjust-stat', data:{charIndex:cIndex, stat:data.stat}, position: {x: rect.left + rect.width / 2, y: rect.top + rect.height / 2}}; renderModal(); },
                 'open-system-menu': () => { playSound('navigate'); LocalUIState.activeModal = { type: 'system-menu', data: {} }; renderModal(); },
                 'close-modal': () => {
@@ -1254,8 +1273,8 @@
         
         // --- SOUND & MISC HELPERS ---
         
-        function initializeSounds() {if (soundInitialized) return; soundInitialized = true; if (typeof Tone === 'undefined') { console.error("Tone.js library not found."); return; } try { volumeNode = new Tone.Volume(Tone.gainToDb(LocalUIState.settings.volume)).toDestination(); volumeNode.mute = LocalUIState.settings.muted; sounds = { navigate: new Tone.Synth({ oscillator: { type: "fmsquare", harmonicity: 0.5 }, envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.1 } }).connect(volumeNode), confirm: new Tone.Synth({ oscillator: { type: "sine" }, envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 } }).connect(volumeNode), select: new Tone.Synth({ oscillator: { type: "triangle", }, envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 } }).connect(volumeNode), cancel: new Tone.Synth({ oscillator: { type: "sine" }, envelope: { attack: 0.01, decay: 0.3, sustain: 0, release: 0.3 } }).connect(volumeNode), error: new Tone.Synth({ oscillator: { type: "sawtooth" }, envelope: { attack: 0.01, decay: 0.5, sustain: 0, release: 0.1 } }).connect(volumeNode), healParty: new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.005, decay: 0.2, sustain: 0.1, release: 0.2 } }).connect(volumeNode), }; } catch (e) { console.error("Could not initialize Tone.js sounds.", e); sounds = null; }}
-        function playSound(sound) {if (!soundInitialized) initializeSounds(); if (!sounds) return; if (Tone.context.state !== 'running') { Tone.start().catch(e => console.error("Tone.js start failed:", e)); } const soundMap = { 'navigate': 'A4', 'confirm': 'C6', 'select': 'G3', 'cancel': 'G4', 'error': 'C2' }; if (sound === 'healParty') { const now = Tone.now(); sounds.healParty.triggerAttackRelease(["C5", "E5", "G5", "C6"], "8n", now); } else if (sounds[sound]) { sounds[sound].triggerAttackRelease(soundMap[sound], "8n"); }}
+        function initializeSounds() {if (soundInitialized) return; soundInitialized = true; if (typeof Tone === 'undefined') { console.error("Tone.js library not found."); return; } try { volumeNode = new Tone.Volume(Tone.gainToDb(LocalUIState.settings.volume)).toDestination(); volumeNode.mute = LocalUIState.settings.muted; sounds = { navigate: new Tone.Synth({ oscillator: { type: "fmsquare", harmonicity: 0.5 }, envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.1 } }).connect(volumeNode), confirm: new Tone.Synth({ oscillator: { type: "sine" }, envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 } }).connect(volumeNode), select: new Tone.Synth({ oscillator: { type: "triangle", }, envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 } }).connect(volumeNode), cancel: new Tone.Synth({ oscillator: { type: "sine" }, envelope: { attack: 0.01, decay: 0.3, sustain: 0, release: 0.3 } }).connect(volumeNode), error: new Tone.Synth({ oscillator: { type: "sawtooth" }, envelope: { attack: 0.01, decay: 0.5, sustain: 0, release: 0.1 } }).connect(volumeNode), healParty: new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.005, decay: 0.2, sustain: 0.1, release: 0.2 } }).connect(volumeNode), info: new Tone.Synth({ oscillator: { type: "sine" }, envelope: { attack: 0.01, decay: 0.2, sustain: 0, release: 0.2 } }).connect(volumeNode) }; } catch (e) { console.error("Could not initialize Tone.js sounds.", e); sounds = null; }}
+        function playSound(sound) {if (!soundInitialized) initializeSounds(); if (!sounds) return; if (Tone.context.state !== 'running') { Tone.start().catch(e => console.error("Tone.js start failed:", e)); } const soundMap = { 'navigate': 'A4', 'confirm': 'C6', 'select': 'G3', 'cancel': 'G4', 'error': 'C2', 'info': 'G5' }; if (sound === 'healParty') { const now = Tone.now(); sounds.healParty.triggerAttackRelease(["C5", "E5", "G5", "C6"], "8n", now); } else if (sounds[sound]) { sounds[sound].triggerAttackRelease(soundMap[sound], "8n"); }}
         
         function addModalEventListeners(type, data) {
             if (type === 'system-menu') {
