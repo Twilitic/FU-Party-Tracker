@@ -334,30 +334,75 @@
                 const currentItems = getItemsFromPath(char, menuState.path);
                 const namePart = `<span class="breadcrumb-item" data-action="go-to-path" data-char-index="${index}" data-path="" style="color: ${char.customization.nameColor || '#ffff00'};">${char.name}</span>`;
                 let pathString;
-                if (menuState.path.length === 0) { pathString = `<h3 class="text-yellow-300 mb-2 truncate">${namePart}</h3>`; } 
-                else {
-                    let tempItems = char.commands; let breadcrumbs = []; let currentPath = [];
-                    for (const i of menuState.path) { currentPath.push(i); breadcrumbs.push({ name: tempItems[i].name, path: currentPath.join(',') }); tempItems = tempItems[i].items; }
-                    if (breadcrumbs.length > 1) { const lastCrumb = breadcrumbs[breadcrumbs.length - 1]; pathString = `<div class="text-yellow-300 mb-2"><div class="truncate">${namePart} &gt; ...</div><div class="text-xl truncate" style="margin-top:-0.25rem;">${lastCrumb.name}</div></div>`; } 
-                    else { const firstCrumb = breadcrumbs[0]; pathString = `<h3 class="text-yellow-300 mb-2 truncate">${namePart} &gt; <span class="breadcrumb-item" data-action="go-to-path" data-char-index="${index}" data-path="${firstCrumb.path}">${firstCrumb.name}</span></h3>`; }
+                if (menuState.path.length === 0) {
+                    pathString = `<h3 class="text-yellow-300 mb-2 truncate">${namePart}</h3>`;
+                } else {
+                    let tempItems = char.commands;
+                    let breadcrumbs = [];
+                    let currentPath = [];
+                    for (const i of menuState.path) {
+                        currentPath.push(i);
+                        breadcrumbs.push({
+                            name: tempItems[i].name,
+                            path: currentPath.join(',')
+                        });
+                        tempItems = tempItems[i].items;
+                    }
+                    if (breadcrumbs.length > 1) {
+                        const lastCrumb = breadcrumbs[breadcrumbs.length - 1];
+                        pathString = `
+                            <div class="text-yellow-300 mb-2">
+                                <div class="truncate">${namePart} &gt; ...</div>
+                                <div class="text-xl truncate" style="margin-top:-0.25rem;">${lastCrumb.name}</div>
+                            </div>
+                        `;
+                    } else {
+                        const firstCrumb = breadcrumbs[0];
+                        pathString = `<h3 class="text-yellow-300 mb-2 truncate">${namePart} &gt; <span class="breadcrumb-item" data-action="go-to-path" data-char-index="${index}" data-path="${firstCrumb.path}">${firstCrumb.name}</span></h3>`;
+                    }
                 }
-                let content = `${pathString}<div class="flex-grow overflow-y-auto pr-2 scrollable-menu">${currentItems.map((item, itemIndex) => {
-                            if (item.type === 'category') { return `<div class="menu-item p-1" data-action="open-menu" data-char-index="${index}" data-item-index="${itemIndex}" style="color: ${char.customization.categoryColor};">${item.name}</div>`; }
-                            return `<div class="menu-item p-1 flex items-center justify-between" data-action="view-detail" data-char-index="${index}" data-item-name="${item.name}"><span class="truncate-on-hover"><span style="color: ${char.customization.itemColor};">${item.name}</span></span><span class="flex-shrink-0 pl-2">${formatCost(item)}</span></div>`;
-                        }).join('')}</div>`;
-                if (menuState.path.length > 0) { content += `<div class="mt-2 text-center"><span class="menu-item p-1 text-cyan-300 inline-block" data-action="go-back" data-char-index="${index}">..Back</span></div>`; } 
-                else if (LocalUIState.isEditMode) { content += `<div class="menu-item p-1 text-green-400 mt-auto" data-action="edit-character" data-char-index="${index}">..Edit Char</div>`; }
+                
+                let content = `
+                    ${pathString}
+                    <div class="flex-grow overflow-y-auto pr-2 scrollable-menu">
+                        ${currentItems.map((item, itemIndex) => {
+                            if (item.type === 'category') {
+                                return `<div class="menu-item p-1" data-action="open-menu" data-char-index="${index}" data-item-index="${itemIndex}" style="color: ${char.customization.categoryColor};">${item.name}</div>`;
+                            }
+                            return `<div class="menu-item p-1 flex items-center justify-between" data-action="view-detail" data-char-index="${index}" data-item-name="${item.name}">
+                                        <span class="truncate-on-hover"><span style="color: ${char.customization.itemColor};">${item.name}</span></span>
+                                        <span class="flex-shrink-0 pl-2">${formatCost(item)}</span>
+                                    </div>`;
+                        }).join('')}
+                    </div>
+                `;
+                
+                if (menuState.path.length > 0) {
+                        content += `<div class="mt-2 text-center"><span class="menu-item p-1 text-cyan-300 inline-block" data-action="go-back" data-char-index="${index}">..Back</span></div>`;
+                } else if (LocalUIState.isEditMode) {
+                        content += `<div class="menu-item p-1 text-green-400 mt-auto" data-action="edit-character" data-char-index="${index}">..Edit Char</div>`;
+                }
+
                 return `<div id="command-menu-${index}" class="jrpg-window flex flex-col gap-1">${content}</div>`;
             }).join('');
         }
         function renderModal() {
             const container = document.getElementById('modal-container');
-            if (!LocalUIState.activeModal) { container.innerHTML = ''; return; }
+            if (!LocalUIState.activeModal) {
+                container.innerHTML = '';
+                return;
+            }
             const { type, data, position } = LocalUIState.activeModal;
             let content = '', modalClass = 'jrpg-window w-11/12 max-w-lg', modalStyle = '';
-            if (position) { modalClass = 'jrpg-window absolute'; modalStyle = `top: ${position.y}px; left: ${position.x}px; transform: translate(-50%, -50%); max-width: 300px; z-index: 50;`; }
+
+            if (position) {
+                modalClass = 'jrpg-window absolute';
+                modalStyle = `top: ${position.y}px; left: ${position.x}px; transform: translate(-50%, -50%); max-width: 300px; z-index: 50;`;
+            }
+
             if (type === 'system-menu') content = getSystemModalContent();
             else if (type === 'admin-panel') { content = getAdminPanelContent(data); modalClass = 'jrpg-window w-11/12 max-w-2xl'; }
+             else if (type === 'admin-prompt') content = getAdminPromptContent();
             else if (type === 'confirm') content = getConfirmModalContent(data);
             else if (type === 'target-selection') content = getTargetModalContent();
             else if (type === 'tonic-target-selection') content = getTonicTargetModalContent(data);
@@ -369,44 +414,79 @@
             else if (type === 'edit-skill') { content = getEditSkillModalContent(data); modalClass = 'jrpg-window w-11/12 max-w-4xl'; } 
             else if (type === 'edit-preset-item') { content = getEditPresetItemModalContent(data); } 
             else content = getDefaultModalContent(type, data);
+
             container.innerHTML = `<div class="modal-backdrop" data-action="close-modal-backdrop"><div class="${modalClass}" style="${modalStyle}">${content}</div></div>`;
             addModalEventListeners(type, data);
         }
         
+        // --- MODAL CONTENT RENDERERS ---
+
         function getSystemModalContent() {
-             return `<h2 class="text-yellow-300 text-lg md:text-xl mb-4">System Menu</h2>
-                     <div class="space-y-4">
-                        ${!isOfflineMode ? `<fieldset class="border-2 border-dashed border-gray-600 p-2 text-center"><legend class="px-1">Session Info</legend><p class="text-lg cursor-pointer" data-action="copy-party-id" title="Click to copy">${partyId}</p></fieldset>` : ''}
-                         <div><label>Background URL:</label><input type="text" id="background-url-input" value="${AppState.settings.backgroundUrl}"></div>
-                         <div class="flex gap-4 pt-2">
-                             <button class="jrpg-window !p-2 action-button" data-action="apply-settings">Apply</button>
-                             <button class="jrpg-window !p-2 action-button" data-action="import-data">Import</button>
-                             <button class="jrpg-window !p-2 action-button" data-action="export-data">Export</button>
-                             <input type="file" id="import-file-input" class="hidden" accept=".json">
-                         </div>
-                         <div class="border-t-2 border-gray-500 pt-4 grid grid-cols-2 gap-2">
-                             <button class="jrpg-window !p-2 action-button w-full" data-action="use-magic-tent">🏕️ Magic Tent</button>
-                             <button class="jrpg-window !p-2 action-button w-full" data-action="refill-ip">Restore All IP</button>
-                         </div>
-                         <div class="border-t-2 border-gray-500 pt-4 space-y-2">
-                            <label class="text-center block">Font Size</label>
-                            <div class="flex justify-around">
-                                ${Object.keys(FONT_SIZES).map(size => `<button class="jrpg-window !p-1 !px-3 action-button ${LocalUIState.settings.fontSize === size ? 'bg-blue-900' : ''}" data-action="set-font-size" data-size="${size}">${size.toUpperCase()}</button>`).join('')}
-                            </div>
+             return `
+                <h2 class="text-yellow-300 text-lg md:text-xl mb-4">System Menu</h2>
+                <div class="space-y-4">
+                    ${!isOfflineMode ? `
+                        <fieldset class="border-2 border-dashed border-gray-600 p-2 text-center">
+                            <legend class="px-1">Session Info</legend>
+                            <p class="text-lg cursor-pointer" data-action="copy-party-id" title="Click to copy">${partyId}</p>
+                        </fieldset>` : ''}
+
+                    <div>
+                        <label>Background URL:</label>
+                        <input type="text" id="background-url-input" value="${AppState.settings.backgroundUrl}">
+                    </div>
+
+                    <div class="flex gap-4 pt-2">
+                        <button class="jrpg-window !p-2 action-button" data-action="apply-settings">Apply</button>
+                        <button class="jrpg-window !p-2 action-button" data-action="import-data">Import</button>
+                        <button class="jrpg-window !p-2 action-button" data-action="export-data">Export</button>
+                        <input type="file" id="import-file-input" class="hidden" accept=".json">
+                    </div>
+
+                    <div class="border-t-2 border-gray-500 pt-4 grid grid-cols-2 gap-2">
+                        <button class="jrpg-window !p-2 action-button w-full" data-action="use-magic-tent">🏕️ Magic Tent</button>
+                        <button class="jrpg-window !p-2 action-button w-full" data-action="refill-ip">Restore All IP</button>
+                    </div>
+
+                    <div class="border-t-2 border-gray-500 pt-4 space-y-2">
+                        <label class="text-center block">Font Size</label>
+                        <div class="flex justify-around">
+                            ${Object.keys(FONT_SIZES).map(size => `
+                                <button class="jrpg-window !p-1 !px-3 action-button ${LocalUIState.settings.fontSize === size ? 'bg-blue-900' : ''}" data-action="set-font-size" data-size="${size}">${size.toUpperCase()}</button>
+                            `).join('')}
                         </div>
-                         <div class="border-t-2 border-gray-500 pt-4 space-y-2">
-                             <label for="volume-slider">Volume</label>
-                             <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="${LocalUIState.settings.volume}">
-                             <button class="jrpg-window !p-2 action-button w-full" id="mute-btn">${LocalUIState.settings.muted ? 'Unmute' : 'Mute'}</button>
-                         </div>
-                         <div class="border-t-2 border-gray-500 pt-4 grid grid-cols-1 gap-2">
-                            ${isOfflineMode ? `<button class="jrpg-window !p-2 action-button bg-red-800 w-full" data-action="reset-offline-prompt">Reset Offline Data</button>` : ''}
-                             <button class="jrpg-window !p-2 action-button bg-blue-800 w-full" data-action="leave-session-prompt">Leave Session</button>
-                             ${!isOfflineMode ? `<button class="jrpg-window !p-2 action-button bg-red-800 w-full" data-action="delete-party-prompt">Delete Party For Everyone</button>`: ''}
-                         </div>
-                     </div>
-                     <div class="mt-6 flex justify-center"><button class="jrpg-window !p-2 action-button" data-action="close-modal">Close</button></div>`;
+                    </div>
+
+                    <div class="border-t-2 border-gray-500 pt-4 space-y-2">
+                        <label for="volume-slider">Volume</label>
+                        <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="${LocalUIState.settings.volume}">
+                        <button class="jrpg-window !p-2 action-button w-full" id="mute-btn">${LocalUIState.settings.muted ? 'Unmute' : 'Mute'}</button>
+                    </div>
+
+                    <div class="border-t-2 border-gray-500 pt-4 grid grid-cols-1 gap-2">
+                        ${isOfflineMode ? `<button class="jrpg-window !p-2 action-button bg-red-800 w-full" data-action="reset-offline-prompt">Reset Offline Data</button>` : ''}
+                        <button class="jrpg-window !p-2 action-button bg-blue-800 w-full" data-action="leave-session-prompt">Leave Session</button>
+                        ${!isOfflineMode ? `<button class="jrpg-window !p-2 action-button bg-red-800 w-full" data-action="delete-party-prompt">Delete Party For Everyone</button>`: ''}
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-center">
+                    <button class="jrpg-window !p-2 action-button" data-action="close-modal">Close</button>
+                </div>`;
         }
+
+        function getAdminPromptContent() {
+            return `
+                <h2 class="text-yellow-300 text-lg mb-4">Admin Access</h2>
+                <p class="mb-4">Please enter the administrator password.</p>
+                <input type="password" id="admin-password-input" class="text-center">
+                <p id="admin-error" class="text-red-500 h-4 mt-2"></p>
+                <div class="mt-4 flex justify-around">
+                    <button class="jrpg-window !p-2 action-button" data-action="submit-admin-password">Submit</button>
+                    <button class="jrpg-window !p-2 action-button" data-action="close-modal">Cancel</button>
+                </div>
+            `;
+        }
+
         function getAdminPanelContent(data) {
             const { sessions, isLoading, error } = data;
             let content = '';
@@ -417,39 +497,345 @@
             } else if (sessions.length === 0) {
                 content = '<p class="text-center">No active sessions found.</p>';
             } else {
-                content = `<div class="space-y-2 max-h-96 overflow-y-auto scrollable-menu pr-2">${sessions.map(id => `
-                    <div class="flex items-center justify-between p-2 bg-black/30">
-                        <span class="truncate">${id}</span>
-                        <div class="flex gap-2 flex-shrink-0">
-                            <button class="jrpg-window !p-1 action-button" data-action="admin-join-session" data-party-id="${id}">Join</button>
-                            <button class="jrpg-window !p-1 action-button bg-red-800" data-action="admin-delete-session-prompt" data-party-id="${id}">Delete</button>
-                        </div>
-                    </div>
-                `).join('')}</div>`;
+                content = `
+                    <div class="space-y-2 max-h-96 overflow-y-auto scrollable-menu pr-2">
+                        ${sessions.map(id => `
+                            <div class="flex items-center justify-between p-2 bg-black/30">
+                                <span class="truncate">${id}</span>
+                                <div class="flex gap-2 flex-shrink-0">
+                                    <button class="jrpg-window !p-1 action-button" data-action="admin-join-session" data-party-id="${id}">Join</button>
+                                    <button class="jrpg-window !p-1 action-button bg-red-800" data-action="admin-delete-session-prompt" data-party-id="${id}">Delete</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>`;
             }
-            return `<h2 class="text-yellow-300 text-lg mb-4">Admin Panel - Session Management</h2>${content}<div class="mt-6 flex justify-center"><button class="jrpg-window !p-2 action-button" data-action="close-modal">Close</button></div>`;
+            return `
+                <h2 class="text-yellow-300 text-lg mb-4">Admin Panel - Session Management</h2>
+                ${content}
+                <div class="mt-6 flex justify-center">
+                    <button class="jrpg-window !p-2 action-button" data-action="close-modal">Close</button>
+                </div>`;
         }
+
         function getConfirmModalContent(data) {
              const { title, message, confirmAction, confirmText, confirmClass, partyId } = data;
-             return `<h2 class="${confirmClass || 'text-yellow-300'} text-lg mb-4">${title}</h2>
-                     <p class="mb-4 text-center">${message}</p>
-                     <div class="flex justify-around mt-6">
-                         <button class="jrpg-window !p-2 action-button ${confirmClass ? `bg-${confirmClass.split('-')[1]}-800` : ''}" data-action="${confirmAction}" ${partyId ? `data-party-id="${partyId}"` : ''}>${confirmText}</button>
-                         <button class="jrpg-window !p-2 action-button" data-action="close-modal">Cancel</button>
-                     </div>`;
+             return `
+                <h2 class="${confirmClass || 'text-yellow-300'} text-lg mb-4">${title}</h2>
+                <p class="mb-4 text-center">${message}</p>
+                <div class="flex justify-around mt-6">
+                    <button class="jrpg-window !p-2 action-button ${confirmClass ? `bg-${confirmClass.split('-')[1]}-800` : ''}" data-action="${confirmAction}" ${partyId ? `data-party-id="${partyId}"` : ''}>${confirmText}</button>
+                    <button class="jrpg-window !p-2 action-button" data-action="close-modal">Cancel</button>
+                </div>`;
         }
-        function getDeleteConfirmModalContent(data) { const { itemName, itemType } = data; const isCategory = itemType === 'category'; return `<h2 class="text-red-500 text-lg mb-4">Confirm Deletion</h2> <p class="mb-4">Are you sure you want to delete "${itemName}"?</p> ${isCategory ? '<p class="text-yellow-300 mb-4">Warning: This is a category and all items within it will also be deleted.</p>' : ''} <div class="flex justify-around mt-6"> <button class="jrpg-window !p-2 action-button bg-red-800" data-action="confirm-delete-item">Delete</button> <button class="jrpg-window !p-2 action-button" data-action="close-skill-editor">Cancel</button> </div>`; }
-        function getEditCharacterModalContent(data) { const char = data.character; return `<div class="h-full flex flex-col"><h2 class="text-yellow-300 text-xl md:text-2xl mb-2 flex-shrink-0">Edit ${char.name}</h2> <div class="modal-content flex-grow overflow-y-auto flex flex-col lg:flex-row"> <div class="w-full lg:w-1/3 pr-4 space-y-4"> <div class="flex flex-col items-center gap-2"> <div class="portrait-container"> <img src="${char.portrait}" alt="${char.name}" class="w-24 h-24 object-cover border-2 border-white"> </div> <button class="jrpg-window !p-1 action-button w-full mt-1" data-action="upload-portrait" data-char-index="${data.charIndex}">Upload Portrait</button> <input type="file" class="hidden" id="portrait-upload-${data.charIndex}" accept="image/*"> </div> <div><label>Name:</label><input type="text" data-path="name" value="${char.name}"></div> <div class="grid grid-cols-2 gap-2"> <div><label>Current HP:</label><input type="number" data-path="stats.hp.current" value="${char.stats.hp.current}"></div> <div><label>Max HP:</label><input type="number" data-path="stats.hp.max" value="${char.stats.hp.max}"></div> <div><label>Current MP:</label><input type="number" data-path="stats.mp.current" value="${char.stats.mp.current}"></div> <div><label>Max MP:</label><input type="number" data-path="stats.mp.max" value="${char.stats.mp.max}"></div> <div><label>Current IP:</label><input type="number" data-path="stats.ip.current" value="${char.stats.ip.current}"></div> <div><label>Max IP:</label><input type="number" data-path="stats.ip.max" value="${char.stats.ip.max}"></div> <div><label>DEF:</label><input type="number" data-path="def" value="${char.def}"></div> <div><label>M.DEF:</label><input type="number" data-path="mdef" value="${char.mdef}"></div> </div> <div class="grid grid-cols-2 md:grid-cols-4 gap-2 my-2"> ${ATTRIBUTES.map(attr => `<div><label>${attr}:</label><select class="w-full" data-path="attributes.${attr}">${DICE.map(d => `<option value="${d}" ${char.attributes[attr] === d ? 'selected' : ''}>${d}</option>`).join('')}</select></div>`).join('')} </div> <div class="grid grid-cols-3 gap-2 items-center my-2"> <div><label>Name Color:</label><input type="color" data-path="customization.nameColor" value="${char.customization.nameColor}"></div> <div><label>Category Color:</label><input type="color" data-path="customization.categoryColor" value="${char.customization.categoryColor}"></div> <div><label>Skill Color:</label><input type="color" data-path="customization.itemColor" value="${char.customization.itemColor}"></div> </div> <div class="grid grid-cols-2 gap-2 mt-4"> <button class="jrpg-window !p-1 action-button" data-action="import-character" data-char-index="${data.charIndex}">Import Char</button> <button class="jrpg-window !p-1 action-button" data-action="export-character" data-char-index="${data.charIndex}">Export Char</button> <input type="file" class="hidden" id="character-import-${data.charIndex}" accept=".json"> </div> </div> <div class="w-full lg:w-2/3 lg:pl-4 flex flex-col border-t-2 lg:border-t-0 lg:border-l-2 border-gray-600 pt-4 lg:pt-0"> <h3 class="text-yellow-300 my-2">Commands</h3> <div id="command-editor-container" class="border p-2 space-y-1 flex-grow overflow-y-auto scrollable-menu"> ${renderEditLevel(char.commands, [], char)} </div> </div> </div> <div class="mt-4 flex justify-center flex-shrink-0"><button class="jrpg-window !p-2 action-button" data-action="close-modal">Close</button></div></div>`; }
-        function getTargetModalContent() { return `<h2 class="text-yellow-300 text-lg mb-4">Select Target</h2><div class="grid grid-cols-2 gap-4">${AppState.party.map((char, index) => `<div class="flex flex-col items-center p-2 menu-item" data-action="select-target" data-target-char-index="${index}"><img src="${char.portrait}" class="w-20 h-20 object-cover border-2 border-white mb-2"><span>${char.name}</span></div>`).join('')}</div>`; }
-        function getTonicTargetModalContent(data) { const { partyWithStatus } = data; return `<h2 class="text-yellow-300 text-lg mb-4">Select Target</h2> <div class="grid grid-cols-2 gap-4"> ${partyWithStatus.map(char => ` <div class="flex flex-col items-center p-2 menu-item" data-action="select-tonic-target" data-target-char-index="${char.originalIndex}"> <img src="${char.portrait}" class="w-20 h-20 object-cover border-2 border-white mb-2"> <span>${char.name}</span> </div> `).join('')} </div>`; }
-        function getTargetSelectionMultiModalContent(data) { const { item, selectedTargets = [] } = data; const maxTargetsMatch = item.targeting.match(/\d+/); const maxTargets = maxTargetsMatch ? parseInt(maxTargetsMatch[0]) : 1; const canConfirm = selectedTargets.length === maxTargets; let content = `<h2 class="text-yellow-300 text-lg mb-4">Select ${maxTargets} Target(s)</h2> <p class="text-center mb-2">${selectedTargets.length} / ${maxTargets} selected</p> <div class="grid grid-cols-2 gap-4"> ${AppState.party.map((char, index) => { const isSelected = selectedTargets.includes(index); return `<div class="flex flex-col items-center p-2 menu-item ${isSelected ? 'border-2 border-yellow-300' : ''}" data-action="select-multi-target" data-target-char-index="${index}"> <img src="${char.portrait}" class="w-20 h-20 object-cover border-2 border-white mb-2"> <span>${char.name}</span> </div>`; }).join('')} </div>`; if (canConfirm) { content += `<div class="mt-6 flex justify-center"><button class="jrpg-window !p-2 action-button" data-action="confirm-multi-target">Confirm</button></div>`; } else { content += `<div class="mt-6 flex justify-center"><button class="jrpg-window !p-2 action-button" data-action="close-modal">Cancel</button></div>`; } return content; }
-        function getAdjustStatModalContent(data) { return `<h2 class="text-yellow-300 text-lg mb-4">Adjust ${data.stat.toUpperCase()}</h2><input type="number" id="adjust-value" class="text-center" value="10"><div class="flex justify-around mt-4"><button class="jrpg-window !p-2 action-button" data-action="confirm-adjust-stat" data-op="add">Add</button><button class="jrpg-window !p-2 action-button" data-action="confirm-adjust-stat" data-op="sub">Subtract</button></div>`; }
-        function getCureStatusModalContent(data) { const char = AppState.party[data.targetCharIndex]; const activeStatuses = Object.entries(char.status).filter(([key, value]) => value); if (activeStatuses.length === 0) { return `<h2 class="text-yellow-300 text-lg mb-4">Cure Status</h2><p class="text-center">${char.name} has no status effects.</p><div class="mt-6 flex justify-center"><button class="jrpg-window !p-2 action-button" data-action="close-modal">Close</button></div>` } return `<h2 class="text-yellow-300 text-lg mb-4">Cure Status: ${char.name}</h2> <div class="grid grid-cols-2 gap-2"> ${activeStatuses.map(([statusKey, _]) => ` <button class="jrpg-window !p-2 action-button" data-action="confirm-cure-status" data-status="${statusKey}"> Cure ${STATUS_EFFECTS[statusKey].name} </button> `).join('')} </div>`; }
-        function getDetailField(label, value) { if (!value && value !== 0) return ''; return `<div class="flex-shrink-0"><span class="text-cyan-300">${label}:</span> <span class="text-white">${value}</span></div>`; }
-        function getEditPresetItemModalContent(data) { const { item } = data; return `<h2 class="text-yellow-300 text-lg mb-4">Edit ${item.name}</h2> <div class="space-y-4"> <fieldset class="border-2 border-dashed border-gray-600 p-2"><legend class="px-1">Cost</legend><div class="grid grid-cols-2 gap-4"> <div><label>Type:</label><select id="preset-edit-cost-type">${COST_TYPES.map(ct => `<option value="${ct}" ${item.costType === ct ? 'selected':''}>${ct}</option>`).join('')}</select></div> <div><label>Value:</label><input type="number" id="preset-edit-cost-value" value="${item.costValue || 0}"></div> </div></fieldset> ${item.isHealing ? ` <fieldset class="border-2 border-dashed border-gray-600 p-2"><legend class="px-1">Healing</legend><div class="grid grid-cols-2 gap-4"> <div><label>Heals:</label><select id="preset-edit-heal-stat">${['HP','MP','IP'].map(s => `<option value="${s}" ${item.healStat === s ? 'selected':''}>${s}</option>`).join('')}</select></div> <div><label>Amount:</label><input type="number" id="preset-edit-heal-value" value="${item.healValue || 0}"></div> </div></fieldset> ` : ''} <div><label>Effect/Description:</label><textarea id="preset-edit-effect" rows="3">${item.effect || ''}</textarea></div> </div> <div class="mt-4 flex justify-end"> <button class="jrpg-window !p-2 action-button" data-action="save-preset-item">Save</button> <button class="jrpg-window !p-2 action-button ml-2" data-action="close-skill-editor">Cancel</button> </div>`; }
-        function getEditSkillModalContent(data) { const defaultSkill = { name: '', costType: 'None', costValue: 0, effect: '', magicCheck:['None','DEX',0], damage:'', damageType:'Physical', duration:'', target:'', isHealing: false, healStat: 'HP', healValue: 0, targeting: '1 Target' }; const item = { ...defaultSkill, ...(data.item || {}), type: data.newType || data.item?.type || 'item' }; let content = `<h2 class="text-yellow-300 text-lg mb-4">${data.isNew ? `Add ${item.type === 'item' ? 'Skill' : 'Category'}` : `Edit ${item.name}`}</h2> <div class="space-y-2"> <div><label>Name:</label><input type="text" id="skill-edit-name" value="${item.name}"></div> ${ item.type === 'item' ? ` <div class="grid grid-cols-1 md:grid-cols-2 gap-4"> <div class="space-y-2"> <div class="flex items-center gap-2"><input type="checkbox" id="skill-edit-is-healing" ${item.isHealing ? 'checked' : ''} class="w-auto"><label for="skill-edit-is-healing">Healing Skill</label></div> <fieldset id="healing-options" class="border-2 border-dashed border-gray-600 p-2 ${!item.isHealing ? 'hidden':''}"><legend class="px-1">Healing</legend><div class="grid grid-cols-2 gap-4"> <div><label>Heals:</label><select id="skill-edit-heal-stat">${['HP','MP','IP'].map(s => `<option value="${s}" ${item.healStat === s ? 'selected':''}>${s}</option>`).join('')}</select></div> <div><label>Amount:</label><input type="number" id="skill-edit-heal-value" value="${item.healValue || 0}"></div> <div class="col-span-2"><label>Targeting:</label><select id="skill-edit-targeting">${TARGETING_TYPES.map(t => `<option value="${t}" ${item.targeting === t ? 'selected':''}>${t}</option>`).join('')}</select></div> </div></fieldset> <fieldset class="border-2 border-dashed border-gray-600 p-2"><legend class="px-1">Cost</legend><div class="grid grid-cols-2 gap-4"> <div><label>Type:</label><select id="skill-edit-cost-type">${COST_TYPES.map(ct => `<option value="${ct}" ${item.costType === ct ? 'selected':''}>${ct}</option>`).join('')}</select></div> <div><label>Value:</label><input type="number" id="skill-edit-cost-value" value="${item.costValue || 0}"></div> </div></fieldset> </div> <div class="space-y-2"> <fieldset class="border-2 border-dashed border-gray-600 p-2"><legend class="px-1">Action</legend><div class="grid grid-cols-2 gap-4"> <div><label>Target:</label><input type="text" id="skill-edit-target" value="${item.target || ''}"></div> <div><label>Duration:</label><input type="text" id="skill-edit-duration" value="${item.duration || ''}"></div> </div></fieldset> <fieldset class="border-2 border-dashed border-gray-600 p-2"><legend class="px-1">Check & Damage</legend><div class="grid grid-cols-1 gap-4"> <div><label>Magic Check:</label><div class="flex items-center gap-1"> <select id="skill-edit-check1">${CHECK_ATTRIBUTES.map(a => `<option value="${a}" ${item.magicCheck && item.magicCheck[0]===a?'selected':''}>${a}</option>`).join('')}</select>+ <select id="skill-edit-check2" ${item.magicCheck && item.magicCheck[0] === 'None' ? 'disabled' : ''}>${ATTRIBUTES.map(a => `<option ${item.magicCheck && item.magicCheck[1]===a?'selected':''}>${a}</option>`).join('')}</select>+ <input type="number" id="skill-edit-check-bonus" value="${(item.magicCheck && item.magicCheck[2]) || 0}" class="w-16 text-center" ${item.magicCheck && item.magicCheck[0] === 'None' ? 'disabled' : ''}> </div></div> <div><label>Damage:</label><input type="text" id="skill-edit-damage" value="${item.damage || ''}"></div> <div class="col-span-full"><label>Damage Type:</label><select id="skill-edit-damage-type">${DAMAGE_TYPES.map(d => `<option value="${d}" ${item.damageType === d ? 'selected': ''}>${d}</option>`).join('')}</select></div> </div></fieldset> </div> </div> <div><label>Effect/Description:</label><textarea id="skill-edit-effect" rows="2">${item.effect || ''}</textarea></div>` : ''} </div>`; const isDeletable = !data.isNew && !PRESET_ITEMS.includes(item.name) && !(item.name === 'Items'); let footer = `<div class="mt-4 flex justify-between"> ${isDeletable ? `<button class="jrpg-window !p-2 action-button bg-red-800" data-action="delete-item">Delete</button>` : '<div></div>'} <div> <button class="jrpg-window !p-2 action-button" data-action="save-skill">Save</button> <button class="jrpg-window !p-2 action-button ml-2" data-action="close-skill-editor">Cancel</button> </div> </div>`; return content + footer; }
-        function getDefaultModalContent(type, data) { let mainContent = '', footer = `<div class="mt-6 flex justify-around items-center"> <button class="jrpg-window !p-2 action-button" data-action="use-item" data-char-index="${data.charIndex}" data-item-name="${data.item.name}">Use</button> ${LocalUIState.isEditMode ? `<button class="jrpg-window !p-2 action-button" data-action="edit-item-from-detail">Edit</button>` : ''} <button class="jrpg-window !p-2 action-button" data-action="close-modal">Close</button> </div>`; if (type === 'item-detail') { const i = data.item; const isPreset = PRESET_ITEMS.includes(i.name); mainContent = `<h2 style="color:var(--text-yellow);" class="text-2xl mb-4 text-center">${i.name} (${AppState.party[data.charIndex].name})</h2> <div class="space-y-3"> <div class="flex flex-wrap gap-x-6 gap-y-2 justify-center"> ${getDetailField('Cost', formatCost(i))} ${!isPreset ? getDetailField('Target', i.target) : ''} ${!isPreset ? getDetailField('Duration', i.duration) : ''} ${!isPreset ? getDetailField('Check', i.magicCheck && i.magicCheck[0] !== 'None' ? `${i.magicCheck[0]} + ${i.magicCheck[1]} + ${i.magicCheck[2]}`: '') : ''} ${!isPreset ? getDetailField('Damage', i.damage) : ''} ${!isPreset && i.damageType && i.damageType !== 'None' ? getDetailField('Type', i.damageType) : ''} </div> <div class="border-t border-gray-600 pt-3">${getDetailField('Effect', i.effect)}</div> </div>`; } else if (type === 'info-screen') { const char = AppState.party[data.charIndex]; mainContent = `<h2 class="text-yellow-300 text-lg mb-4">${char.name} - Info</h2> <p>Character Info Screen (Work in Progress)</p> <p>Resistances, Bonds, Fabula Points, etc. will be here.</p>`; footer = `<div class="mt-6 flex justify-center"><button class="jrpg-window !p-2 action-button" data-action="close-modal">Close</button></div>` } return mainContent + footer; }
-        function renderEditLevel(items, currentPath, char) { let html = `<div class="drop-zone" data-path="${currentPath.join(',')}">`; items.forEach((item, index) => { const newPath = [...currentPath, index]; const itemColor = item.type === 'category' ? char.customization.categoryColor : char.customization.itemColor; const isLocked = (item.name === 'Items' && newPath.length === 1) || PRESET_ITEMS.includes(item.name); html += `<div class="draggable-container" style="margin-left: ${currentPath.length}rem;"> <div class="drop-indicator"></div> <div class="draggable p-1 border-l-2 border-gray-600 ${isLocked ? 'locked-item' : ''}" ${isLocked ? '' : 'draggable="true"'} data-path="${newPath.join(',')}" data-type="${item.type}"> <div class="flex items-center gap-2"> ${item.type === 'category' ? `<span class="collapse-toggle" data-action="toggle-collapse" data-path="${newPath.join(',')}">${item.isCollapsed ? '[+]' : '[-]'}</span>` : '<span class="w-7"></span>'} <span class="flex-grow" style="color: ${isLocked ? 'var(--border-dark)' : itemColor};">${item.name}</span> <button class="text-blue-400" data-action="edit-item" data-path="${newPath.join(',')}">Edit</button> ${!isLocked ? `<button class="text-red-500" data-action="delete-item" data-path="${newPath.join(',')}">Del</button>` : ''} </div> ${item.type === 'category' && !item.isCollapsed ? renderEditLevel(item.items || [], newPath, char) : ''} </div> </div>`; }); html += `<div class="drop-indicator"></div></div>`; if(currentPath.length === 0) { html += `<div class="mt-2"> <button class="text-yellow-400" data-action="add-item" data-path="" data-type="category">+ Add Category</button> <button class="text-green-400 ml-2" data-action="add-item" data-path="" data-type="item">+ Add Skill</button> </div>`; } return html; }
+
+        function getDeleteConfirmModalContent(data) {
+            const { itemName, itemType } = data;
+            const isCategory = itemType === 'category';
+            return `
+                <h2 class="text-red-500 text-lg mb-4">Confirm Deletion</h2>
+                <p class="mb-4">Are you sure you want to delete "${itemName}"?</p>
+                ${isCategory ? '<p class="text-yellow-300 mb-4">Warning: This is a category and all items within it will also be deleted.</p>' : ''}
+                <div class="flex justify-around mt-6">
+                    <button class="jrpg-window !p-2 action-button bg-red-800" data-action="confirm-delete-item">Delete</button>
+                    <button class="jrpg-window !p-2 action-button" data-action="close-skill-editor">Cancel</button>
+                </div>`;
+        }
+
+        function getEditCharacterModalContent(data) {
+            const char = data.character;
+            return `
+                <div class="h-full flex flex-col">
+                    <h2 class="text-yellow-300 text-xl md:text-2xl mb-2 flex-shrink-0">Edit ${char.name}</h2>
+                    <div class="modal-content flex-grow overflow-y-auto flex flex-col lg:flex-row">
+                        <div class="w-full lg:w-1/3 pr-4 space-y-4">
+                            <!-- Character Details -->
+                            <div class="flex flex-col items-center gap-2">
+                                <div class="portrait-container">
+                                    <img src="${char.portrait}" alt="${char.name}" class="w-24 h-24 object-cover border-2 border-white">
+                                </div>
+                                <button class="jrpg-window !p-1 action-button w-full mt-1" data-action="upload-portrait" data-char-index="${data.charIndex}">Upload Portrait</button>
+                                <input type="file" class="hidden" id="portrait-upload-${data.charIndex}" accept="image/*">
+                            </div>
+                            <div><label>Name:</label><input type="text" data-path="name" value="${char.name}"></div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div><label>Current HP:</label><input type="number" data-path="stats.hp.current" value="${char.stats.hp.current}"></div>
+                                <div><label>Max HP:</label><input type="number" data-path="stats.hp.max" value="${char.stats.hp.max}"></div>
+                                <div><label>Current MP:</label><input type="number" data-path="stats.mp.current" value="${char.stats.mp.current}"></div>
+                                <div><label>Max MP:</label><input type="number" data-path="stats.mp.max" value="${char.stats.mp.max}"></div>
+                                <div><label>Current IP:</label><input type="number" data-path="stats.ip.current" value="${char.stats.ip.current}"></div>
+                                <div><label>Max IP:</label><input type="number" data-path="stats.ip.max" value="${char.stats.ip.max}"></div>
+                                <div><label>DEF:</label><input type="number" data-path="def" value="${char.def}"></div>
+                                <div><label>M.DEF:</label><input type="number" data-path="mdef" value="${char.mdef}"></div>
+                            </div>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 my-2">
+                                ${ATTRIBUTES.map(attr => `<div><label>${attr}:</label><select class="w-full" data-path="attributes.${attr}">${DICE.map(d => `<option value="${d}" ${char.attributes[attr] === d ? 'selected' : ''}>${d}</option>`).join('')}</select></div>`).join('')}
+                            </div>
+                            <div class="grid grid-cols-3 gap-2 items-center my-2">
+                                <div><label>Name Color:</label><input type="color" data-path="customization.nameColor" value="${char.customization.nameColor}"></div>
+                                <div><label>Category Color:</label><input type="color" data-path="customization.categoryColor" value="${char.customization.categoryColor}"></div>
+                                <div><label>Skill Color:</label><input type="color" data-path="customization.itemColor" value="${char.customization.itemColor}"></div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 mt-4">
+                                <button class="jrpg-window !p-1 action-button" data-action="import-character" data-char-index="${data.charIndex}">Import Char</button>
+                                <button class="jrpg-window !p-1 action-button" data-action="export-character" data-char-index="${data.charIndex}">Export Char</button>
+                                <input type="file" class="hidden" id="character-import-${data.charIndex}" accept=".json">
+                            </div>
+                        </div>
+                        <div class="w-full lg:w-2/3 lg:pl-4 flex flex-col border-t-2 lg:border-t-0 lg:border-l-2 border-gray-600 pt-4 lg:pt-0">
+                            <h3 class="text-yellow-300 my-2">Commands</h3>
+                            <div id="command-editor-container" class="border p-2 space-y-1 flex-grow overflow-y-auto scrollable-menu">
+                                ${renderEditLevel(char.commands, [], char)}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex justify-center flex-shrink-0"><button class="jrpg-window !p-2 action-button" data-action="close-modal">Close</button></div>
+                </div>`;
+        }
+        function getTargetModalContent() {
+            return `
+                <h2 class="text-yellow-300 text-lg mb-4">Select Target</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    ${AppState.party.map((char, index) => `
+                        <div class="flex flex-col items-center p-2 menu-item" data-action="select-target" data-target-char-index="${index}">
+                            <img src="${char.portrait}" class="w-20 h-20 object-cover border-2 border-white mb-2">
+                            <span>${char.name}</span>
+                        </div>
+                    `).join('')}
+                </div>`;
+        }
+        function getTonicTargetModalContent(data) {
+            const { partyWithStatus } = data;
+            return `
+                <h2 class="text-yellow-300 text-lg mb-4">Select Target</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    ${partyWithStatus.map(char => `
+                        <div class="flex flex-col items-center p-2 menu-item" data-action="select-tonic-target" data-target-char-index="${char.originalIndex}">
+                            <img src="${char.portrait}" class="w-20 h-20 object-cover border-2 border-white mb-2">
+                            <span>${char.name}</span>
+                        </div>
+                    `).join('')}
+                </div>`;
+        }
+        function getTargetSelectionMultiModalContent(data) {
+            const { item, selectedTargets = [] } = data;
+            const maxTargetsMatch = item.targeting.match(/\d+/);
+            const maxTargets = maxTargetsMatch ? parseInt(maxTargetsMatch[0]) : 1;
+            const canConfirm = selectedTargets.length === maxTargets;
+            let content = `
+                <h2 class="text-yellow-300 text-lg mb-4">Select ${maxTargets} Target(s)</h2>
+                <p class="text-center mb-2">${selectedTargets.length} / ${maxTargets} selected</p>
+                <div class="grid grid-cols-2 gap-4">
+                    ${AppState.party.map((char, index) => {
+                        const isSelected = selectedTargets.includes(index);
+                        return `
+                            <div class="flex flex-col items-center p-2 menu-item ${isSelected ? 'border-2 border-yellow-300' : ''}" data-action="select-multi-target" data-target-char-index="${index}">
+                                <img src="${char.portrait}" class="w-20 h-20 object-cover border-2 border-white mb-2">
+                                <span>${char.name}</span>
+                            </div>`;
+                    }).join('')}
+                </div>`;
+            if (canConfirm) {
+                content += `<div class="mt-6 flex justify-center"><button class="jrpg-window !p-2 action-button" data-action="confirm-multi-target">Confirm</button></div>`;
+            } else {
+                content += `<div class="mt-6 flex justify-center"><button class="jrpg-window !p-2 action-button" data-action="close-modal">Cancel</button></div>`;
+            }
+            return content;
+        }
+        function getAdjustStatModalContent(data) {
+            return `
+                <h2 class="text-yellow-300 text-lg mb-4">Adjust ${data.stat.toUpperCase()}</h2>
+                <input type="number" id="adjust-value" class="text-center" value="10">
+                <div class="flex justify-around mt-4">
+                    <button class="jrpg-window !p-2 action-button" data-action="confirm-adjust-stat" data-op="add">Add</button>
+                    <button class="jrpg-window !p-2 action-button" data-action="confirm-adjust-stat" data-op="sub">Subtract</button>
+                </div>`;
+        }
+        function getCureStatusModalContent(data) {
+            const char = AppState.party[data.targetCharIndex];
+            const activeStatuses = Object.entries(char.status).filter(([key, value]) => value);
+            if (activeStatuses.length === 0) {
+                return `
+                    <h2 class="text-yellow-300 text-lg mb-4">Cure Status</h2>
+                    <p class="text-center">${char.name} has no status effects.</p>
+                    <div class="mt-6 flex justify-center">
+                        <button class="jrpg-window !p-2 action-button" data-action="close-modal">Close</button>
+                    </div>`
+            }
+            return `
+                <h2 class="text-yellow-300 text-lg mb-4">Cure Status: ${char.name}</h2>
+                <div class="grid grid-cols-2 gap-2">
+                    ${activeStatuses.map(([statusKey, _]) => `
+                        <button class="jrpg-window !p-2 action-button" data-action="confirm-cure-status" data-status="${statusKey}">
+                           Cure ${STATUS_EFFECTS[statusKey].name}
+                        </button>
+                    `).join('')}
+                </div>`;
+        }
+        function getDetailField(label, value) {
+            if (!value && value !== 0) return '';
+            return `<div class="flex-shrink-0"><span class="text-cyan-300">${label}:</span> <span class="text-white">${value}</span></div>`;
+        }
+        function getEditPresetItemModalContent(data) {
+            const { item } = data;
+            return `
+                <h2 class="text-yellow-300 text-lg mb-4">Edit ${item.name}</h2>
+                <div class="space-y-4">
+                    <fieldset class="border-2 border-dashed border-gray-600 p-2">
+                        <legend class="px-1">Cost</legend>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label>Type:</label><select id="preset-edit-cost-type">${COST_TYPES.map(ct => `<option value="${ct}" ${item.costType === ct ? 'selected':''}>${ct}</option>`).join('')}</select></div>
+                            <div><label>Value:</label><input type="number" id="preset-edit-cost-value" value="${item.costValue || 0}"></div>
+                        </div>
+                    </fieldset>
+                    ${item.isHealing ? `
+                    <fieldset class="border-2 border-dashed border-gray-600 p-2">
+                        <legend class="px-1">Healing</legend>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label>Heals:</label><select id="preset-edit-heal-stat">${['HP','MP','IP'].map(s => `<option value="${s}" ${item.healStat === s ? 'selected':''}>${s}</option>`).join('')}</select></div>
+                            <div><label>Amount:</label><input type="number" id="preset-edit-heal-value" value="${item.healValue || 0}"></div>
+                        </div>
+                    </fieldset>
+                    ` : ''}
+                    <div><label>Effect/Description:</label><textarea id="preset-edit-effect" rows="3">${item.effect || ''}</textarea></div>
+                </div>
+                <div class="mt-4 flex justify-end">
+                    <button class="jrpg-window !p-2 action-button" data-action="save-preset-item">Save</button>
+                    <button class="jrpg-window !p-2 action-button ml-2" data-action="close-skill-editor">Cancel</button>
+                </div>`;
+        }
+        function getEditSkillModalContent(data) {
+            const defaultSkill = { name: '', costType: 'None', costValue: 0, effect: '', magicCheck:['None','DEX',0], damage:'', damageType:'Physical', duration:'', target:'', isHealing: false, healStat: 'HP', healValue: 0, targeting: '1 Target' };
+            const item = { ...defaultSkill, ...(data.item || {}), type: data.newType || data.item?.type || 'item' };
+            let content = `
+                <h2 class="text-yellow-300 text-lg mb-4">${data.isNew ? `Add ${item.type === 'item' ? 'Skill' : 'Category'}` : `Edit ${item.name}`}</h2>
+                <div class="space-y-2">
+                    <div><label>Name:</label><input type="text" id="skill-edit-name" value="${item.name}"></div>
+                    ${ item.type === 'item' ? `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="space-y-2">
+                           <div class="flex items-center gap-2"><input type="checkbox" id="skill-edit-is-healing" ${item.isHealing ? 'checked' : ''} class="w-auto"><label for="skill-edit-is-healing">Healing Skill</label></div>
+                            <fieldset id="healing-options" class="border-2 border-dashed border-gray-600 p-2 ${!item.isHealing ? 'hidden':''}">
+                                <legend class="px-1">Healing</legend>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div><label>Heals:</label><select id="skill-edit-heal-stat">${['HP','MP','IP'].map(s => `<option value="${s}" ${item.healStat === s ? 'selected':''}>${s}</option>`).join('')}</select></div>
+                                    <div><label>Amount:</label><input type="number" id="skill-edit-heal-value" value="${item.healValue || 0}"></div>
+                                    <div class="col-span-2"><label>Targeting:</label><select id="skill-edit-targeting">${TARGETING_TYPES.map(t => `<option value="${t}" ${item.targeting === t ? 'selected':''}>${t}</option>`).join('')}</select></div>
+                                </div>
+                            </fieldset>
+                             <fieldset class="border-2 border-dashed border-gray-600 p-2">
+                                <legend class="px-1">Cost</legend>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div><label>Type:</label><select id="skill-edit-cost-type">${COST_TYPES.map(ct => `<option value="${ct}" ${item.costType === ct ? 'selected':''}>${ct}</option>`).join('')}</select></div>
+                                    <div><label>Value:</label><input type="number" id="skill-edit-cost-value" value="${item.costValue || 0}"></div>
+                                </div>
+                            </fieldset>
+                        </div>
+                        <div class="space-y-2">
+                             <fieldset class="border-2 border-dashed border-gray-600 p-2">
+                                <legend class="px-1">Action</legend>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div><label>Target:</label><input type="text" id="skill-edit-target" value="${item.target || ''}"></div>
+                                    <div><label>Duration:</label><input type="text" id="skill-edit-duration" value="${item.duration || ''}"></div>
+                                </div>
+                            </fieldset>
+                             <fieldset class="border-2 border-dashed border-gray-600 p-2">
+                                <legend class="px-1">Check & Damage</legend>
+                                <div class="grid grid-cols-1 gap-4">
+                                    <div>
+                                        <label>Magic Check:</label>
+                                        <div class="flex items-center gap-1">
+                                            <select id="skill-edit-check1">${CHECK_ATTRIBUTES.map(a => `<option value="${a}" ${item.magicCheck && item.magicCheck[0]===a?'selected':''}>${a}</option>`).join('')}</select>+
+                                            <select id="skill-edit-check2" ${item.magicCheck && item.magicCheck[0] === 'None' ? 'disabled' : ''}>${ATTRIBUTES.map(a => `<option ${item.magicCheck && item.magicCheck[1]===a?'selected':''}>${a}</option>`).join('')}</select>+
+                                            <input type="number" id="skill-edit-check-bonus" value="${(item.magicCheck && item.magicCheck[2]) || 0}" class="w-16 text-center" ${item.magicCheck && item.magicCheck[0] === 'None' ? 'disabled' : ''}>
+                                        </div>
+                                    </div>
+                                    <div><label>Damage:</label><input type="text" id="skill-edit-damage" value="${item.damage || ''}"></div>
+                                    <div class="col-span-full"><label>Damage Type:</label><select id="skill-edit-damage-type">${DAMAGE_TYPES.map(d => `<option value="${d}" ${item.damageType === d ? 'selected': ''}>${d}</option>`).join('')}</select></div>
+                                </div>
+                            </fieldset>
+                        </div>
+                    </div>
+                    <div><label>Effect/Description:</label><textarea id="skill-edit-effect" rows="2">${item.effect || ''}</textarea></div>` : ''}
+                </div>`;
+            const isDeletable = !data.isNew && !PRESET_ITEMS.includes(item.name) && !(item.name === 'Items');
+            let footer = `
+                <div class="mt-4 flex justify-between">
+                    ${isDeletable ? `<button class="jrpg-window !p-2 action-button bg-red-800" data-action="delete-item">Delete</button>` : '<div></div>'}
+                    <div>
+                        <button class="jrpg-window !p-2 action-button" data-action="save-skill">Save</button>
+                        <button class="jrpg-window !p-2 action-button ml-2" data-action="close-skill-editor">Cancel</button>
+                    </div>
+                </div>`;
+            return content + footer;
+        }
+        function getDefaultModalContent(type, data) {
+            let mainContent = '';
+            let footer = `
+                <div class="mt-6 flex justify-around items-center">
+                    <button class="jrpg-window !p-2 action-button" data-action="use-item" data-char-index="${data.charIndex}" data-item-name="${data.item.name}">Use</button>
+                    ${LocalUIState.isEditMode ? `<button class="jrpg-window !p-2 action-button" data-action="edit-item-from-detail">Edit</button>` : ''}
+                    <button class="jrpg-window !p-2 action-button" data-action="close-modal">Close</button>
+                </div>`;
+
+            if (type === 'item-detail') {
+                const i = data.item;
+                const isPreset = PRESET_ITEMS.includes(i.name);
+                mainContent = `
+                    <h2 style="color:var(--text-yellow);" class="text-2xl mb-4 text-center">${i.name} (${AppState.party[data.charIndex].name})</h2>
+                    <div class="space-y-3">
+                        <div class="flex flex-wrap gap-x-6 gap-y-2 justify-center">
+                            ${getDetailField('Cost', formatCost(i))}
+                            ${!isPreset ? getDetailField('Target', i.target) : ''}
+                            ${!isPreset ? getDetailField('Duration', i.duration) : ''}
+                            ${!isPreset ? getDetailField('Check', i.magicCheck && i.magicCheck[0] !== 'None' ? `${i.magicCheck[0]} + ${i.magicCheck[1]} + ${i.magicCheck[2]}`: '') : ''}
+                            ${!isPreset ? getDetailField('Damage', i.damage) : ''}
+                            ${!isPreset && i.damageType && i.damageType !== 'None' ? getDetailField('Type', i.damageType) : ''}
+                        </div>
+                        <div class="border-t border-gray-600 pt-3">${getDetailField('Effect', i.effect)}</div>
+                    </div>`;
+            } else if (type === 'info-screen') {
+                const char = AppState.party[data.charIndex];
+                mainContent = `
+                    <h2 class="text-yellow-300 text-lg mb-4">${char.name} - Info</h2>
+                    <p>Character Info Screen (Work in Progress)</p>
+                    <p>Resistances, Bonds, Fabula Points, etc. will be here.</p>`;
+                footer = `<div class="mt-6 flex justify-center"><button class="jrpg-window !p-2 action-button" data-action="close-modal">Close</button></div>`
+            }
+            return mainContent + footer;
+        }
+        function renderEditLevel(items, currentPath, char) {
+            let html = `<div class="drop-zone" data-path="${currentPath.join(',')}">`;
+            items.forEach((item, index) => {
+                const newPath = [...currentPath, index];
+                const itemColor = item.type === 'category' ? char.customization.categoryColor : char.customization.itemColor;
+                const isLocked = (item.name === 'Items' && newPath.length === 1) || PRESET_ITEMS.includes(item.name);
+                html += `
+                    <div class="draggable-container" style="margin-left: ${currentPath.length}rem;">
+                        <div class="drop-indicator"></div>
+                        <div class="draggable p-1 border-l-2 border-gray-600 ${isLocked ? 'locked-item' : ''}" ${isLocked ? '' : 'draggable="true"'} data-path="${newPath.join(',')}" data-type="${item.type}">
+                            <div class="flex items-center gap-2">
+                                ${item.type === 'category' ? `<span class="collapse-toggle" data-action="toggle-collapse" data-path="${newPath.join(',')}">${item.isCollapsed ? '[+]' : '[-]'}</span>` : '<span class="w-7"></span>'}
+                                <span class="flex-grow" style="color: ${isLocked ? 'var(--border-dark)' : itemColor};">${item.name}</span>
+                                <button class="text-blue-400" data-action="edit-item" data-path="${newPath.join(',')}">Edit</button>
+                                ${!isLocked ? `<button class="text-red-500" data-action="delete-item" data-path="${newPath.join(',')}">Del</button>` : ''}
+                            </div>
+                            ${item.type === 'category' && !item.isCollapsed ? renderEditLevel(item.items || [], newPath, char) : ''}
+                        </div>
+                    </div>`;
+            });
+            html += `<div class="drop-indicator"></div></div>`;
+            if(currentPath.length === 0) {
+                html += `
+                    <div class="mt-2">
+                        <button class="text-yellow-400" data-action="add-item" data-path="" data-type="category">+ Add Category</button>
+                        <button class="text-green-400 ml-2" data-action="add-item" data-path="" data-type="item">+ Add Skill</button>
+                    </div>`;
+            }
+            return html;
+        }
+
+        // --- EVENT HANDLERS & ACTIONS ---
 
         function handleGlobalClick(e) {
             const target = e.target.closest('[data-action]');
@@ -457,20 +843,188 @@
             const { action, charIndex, ...data } = target.dataset;
             const cIndex = parseInt(charIndex);
 
+            // Actions that modify the shared AppState
             const sharedActions = {
-                'toggle-status': () => { AppState.party[cIndex].status[data.status] = !AppState.party[cIndex].status[data.status]; saveData(); },
-                'confirm-adjust-stat': () => { playSound('confirm'); const {charIndex, stat} = LocalUIState.activeModal.data; let val = parseInt(document.getElementById('adjust-value').value) || 0; const s = AppState.party[charIndex].stats[stat]; let newVal = s.current + (data.op === 'add' ? val : -val); newVal = Math.max(0, newVal); s.current = newVal; LocalUIState.activeModal = null; saveData(); renderAll(); },
-                'apply-settings': () => { playSound('confirm'); AppState.settings.backgroundUrl = document.getElementById('background-url-input').value; saveData(); localActions['close-modal'](); },
-                'use-magic-tent': (user) => { const isSystemUse = !user; if (isSystemUse) { playSound('healParty'); AppState.party.forEach(char => { char.stats.hp.current = char.stats.hp.max; char.stats.mp.current = char.stats.mp.max; Object.keys(char.status).forEach(s => char.status[s] = false); }); LocalUIState.activeModal = null; saveData(); renderAll(); return; } let tent; const findTent = (items) => { for (const item of items) { if (item.name === 'Magic Tent') { tent = item; return true; } if (item.items && findTent(item.items)) return true; } return false; }; findTent(user.commands); if (tent && user.stats.ip.current >= tent.costValue) { user.stats.ip.current -= tent.costValue; playSound('healParty'); AppState.party.forEach(char => { char.stats.hp.current = char.stats.hp.max; char.stats.mp.current = char.stats.mp.max; Object.keys(char.status).forEach(s => char.status[s] = false); }); LocalUIState.activeModal = null; saveData(); renderAll(); } else { playSound('error'); } },
-                'confirm-cure-status': () => { const { userCharIndex, targetCharIndex, item } = LocalUIState.activeModal.data; const userChar = AppState.party[userCharIndex]; const targetChar = AppState.party[targetCharIndex]; const costResource = item.costType.toLowerCase(); if (targetChar.status[data.status] && userChar.stats[costResource].current >= item.costValue) { userChar.stats[costResource].current -= item.costValue; targetChar.status[data.status] = false; playSound('confirm'); LocalUIState.activeModal = null; saveData(); renderAll(); } else { playSound('error'); } },
-                'refill-ip': () => { playSound('healParty'); AppState.party.forEach(p => p.stats.ip.current = p.stats.ip.max); saveData(); localActions['close-modal'](); },
-                'save-skill': () => { playSound('confirm'); const { charIndex, itemPath, item, isNew, newType } = LocalUIState.activeModal.data; const char = AppState.party[charIndex]; const name = document.getElementById('skill-edit-name').value || 'New'; let newItem; if ( (isNew && newType === 'category') || (!isNew && item.type === 'category') ) { newItem = { name, type: 'category', isCollapsed: false, items: isNew ? [] : (item.items || []) }; } else { newItem = { name, type: 'item', costType: document.getElementById('skill-edit-cost-type').value, costValue: parseInt(document.getElementById('skill-edit-cost-value').value) || 0, target: document.getElementById('skill-edit-target').value, duration: document.getElementById('skill-edit-duration').value, magicCheck: [ document.getElementById('skill-edit-check1').value, document.getElementById('skill-edit-check2').value, parseInt(document.getElementById('skill-edit-check-bonus').value) || 0 ], damage: document.getElementById('skill-edit-damage').value, damageType: document.getElementById('skill-edit-damage-type').value, effect: document.getElementById('skill-edit-effect').value || '', isHealing: document.getElementById('skill-edit-is-healing').checked, healStat: document.getElementById('skill-edit-heal-stat').value, healValue: parseInt(document.getElementById('skill-edit-heal-value').value) || 0, targeting: document.getElementById('skill-edit-targeting').value }; } if (isNew) { const { item: parentCategory } = _getItemAndParentByPath(char.commands, itemPath); let parentList = parentCategory ? parentCategory.items : char.commands; if (!parentList) { if(parentCategory) { parentCategory.items = []; parentList = parentCategory.items; } } parentList.push(newItem); } else { const { parent: parentList, index } = _getItemAndParentByPath(char.commands, itemPath); if(parentList && index > -1) parentList[index] = newItem; } saveData(); localActions['close-skill-editor'](); },
-                'save-preset-item': () => { playSound('confirm'); const { charIndex, itemPath } = LocalUIState.activeModal.data; const { parent: parentList, item, index } = _getItemAndParentByPath(AppState.party[charIndex].commands, itemPath); if (!item) return; item.costType = document.getElementById('preset-edit-cost-type').value; item.costValue = parseInt(document.getElementById('preset-edit-cost-value').value) || 0; item.effect = document.getElementById('preset-edit-effect').value; if (item.isHealing) { item.healStat = document.getElementById('preset-edit-heal-stat').value; item.healValue = parseInt(document.getElementById('preset-edit-heal-value').value) || 0; } parentList[index] = item; saveData(); localActions['close-skill-editor'](); },
-                'confirm-delete-item': () => { playSound('confirm'); const { charIndex, itemPath } = LocalUIState.activeModal.data; const { parent: parentItems, index } = _getItemAndParentByPath(AppState.party[charIndex].commands, itemPath); if (parentItems && index > -1) { parentItems.splice(index, 1); saveData(); } localActions['close-skill-editor'](); },
-                'toggle-collapse': () => { playSound('navigate'); const { charIndex } = LocalUIState.activeModal.data; const pathArr = data.path.split(',').map(Number); const { item } = _getItemAndParentByPath(AppState.party[charIndex].commands, pathArr); if (item && item.type === 'category') { item.isCollapsed = !item.isCollapsed; saveData(); if(isOfflineMode) renderModal(); } },
-                'confirm-multi-target': () => { const { item, userCharIndex, selectedTargets } = LocalUIState.activeModal.data; applyAbilityEffect(AppState.party[userCharIndex], item, selectedTargets); },
-                'select-target': () => { const {item, userCharIndex} = LocalUIState.activeModal.data; applyAbilityEffect(AppState.party[userCharIndex], item, [parseInt(data.targetCharIndex)]); },
+                'toggle-status': () => {
+                    AppState.party[cIndex].status[data.status] = !AppState.party[cIndex].status[data.status];
+                    saveData();
+                    if (isOfflineMode) renderStatusPanels(); // Immediate feedback for offline
+                },
+                'confirm-adjust-stat': () => {
+                    playSound('confirm');
+                    const {charIndex, stat} = LocalUIState.activeModal.data;
+                    let val = parseInt(document.getElementById('adjust-value').value) || 0;
+                    const s = AppState.party[charIndex].stats[stat];
+                    let newVal = s.current + (data.op === 'add' ? val : -val);
+                    newVal = Math.max(0, newVal);
+                    s.current = newVal;
+                    LocalUIState.activeModal = null;
+                    saveData();
+                    renderAll();
+                },
+                'apply-settings': () => {
+                    playSound('confirm');
+                    AppState.settings.backgroundUrl = document.getElementById('background-url-input').value;
+                    saveData();
+                    localActions['close-modal']();
+                },
+                'use-magic-tent': (user) => {
+                    const isSystemUse = !user;
+                    if (isSystemUse) {
+                        playSound('healParty');
+                        AppState.party.forEach(char => {
+                            char.stats.hp.current = char.stats.hp.max;
+                            char.stats.mp.current = char.stats.mp.max;
+                            Object.keys(char.status).forEach(s => char.status[s] = false);
+                        });
+                        LocalUIState.activeModal = null;
+                        saveData();
+                        renderAll();
+                        return;
+                    }
+                    let tent;
+                    const findTent = (items) => {
+                        for (const item of items) {
+                            if (item.name === 'Magic Tent') { tent = item; return true; }
+                            if (item.items && findTent(item.items)) return true;
+                        }
+                        return false;
+                    };
+                    findTent(user.commands);
+                    if (tent && user.stats.ip.current >= tent.costValue) {
+                        user.stats.ip.current -= tent.costValue;
+                        playSound('healParty');
+                        AppState.party.forEach(char => {
+                            char.stats.hp.current = char.stats.hp.max;
+                            char.stats.mp.current = char.stats.mp.max;
+                            Object.keys(char.status).forEach(s => char.status[s] = false);
+                        });
+                        LocalUIState.activeModal = null;
+                        saveData();
+                        renderAll();
+                    } else { playSound('error'); }
+                },
+                'confirm-cure-status': () => {
+                    const { userCharIndex, targetCharIndex, item } = LocalUIState.activeModal.data;
+                    const userChar = AppState.party[userCharIndex];
+                    const targetChar = AppState.party[targetCharIndex];
+                    const costResource = item.costType.toLowerCase();
+
+                    if (targetChar.status[data.status] && userChar.stats[costResource].current >= item.costValue) {
+                        userChar.stats[costResource].current -= item.costValue;
+                        targetChar.status[data.status] = false;
+                        playSound('confirm');
+                        LocalUIState.activeModal = null;
+                        saveData();
+                        renderAll();
+                    } else {
+                        playSound('error');
+                    }
+                },
+                'refill-ip': () => {
+                    playSound('healParty');
+                    AppState.party.forEach(p => p.stats.ip.current = p.stats.ip.max);
+                    saveData();
+                    localActions['close-modal']();
+                },
+                'save-skill': () => {
+                    playSound('confirm');
+                    const { charIndex, itemPath, item, isNew, newType } = LocalUIState.activeModal.data;
+                    const char = AppState.party[charIndex];
+                    
+                    const name = document.getElementById('skill-edit-name').value || 'New';
+                    let newItem;
+                    if ( (isNew && newType === 'category') || (!isNew && item.type === 'category') ) {
+                        newItem = { name, type: 'category', isCollapsed: false, items: isNew ? [] : (item.items || []) };
+                    } else {
+                        newItem = {
+                            name, type: 'item',
+                            costType: document.getElementById('skill-edit-cost-type').value,
+                            costValue: parseInt(document.getElementById('skill-edit-cost-value').value) || 0,
+                            target: document.getElementById('skill-edit-target').value,
+                            duration: document.getElementById('skill-edit-duration').value,
+                            magicCheck: [
+                                document.getElementById('skill-edit-check1').value,
+                                document.getElementById('skill-edit-check2').value,
+                                parseInt(document.getElementById('skill-edit-check-bonus').value) || 0
+                            ],
+                            damage: document.getElementById('skill-edit-damage').value,
+                            damageType: document.getElementById('skill-edit-damage-type').value,
+                            effect: document.getElementById('skill-edit-effect').value || '',
+                            isHealing: document.getElementById('skill-edit-is-healing').checked,
+                            healStat: document.getElementById('skill-edit-heal-stat').value,
+                            healValue: parseInt(document.getElementById('skill-edit-heal-value').value) || 0,
+                            targeting: document.getElementById('skill-edit-targeting').value
+                        };
+                    }
+
+                    if (isNew) {
+                        const { item: parentCategory } = _getItemAndParentByPath(char.commands, itemPath);
+                        let parentList = parentCategory ? parentCategory.items : char.commands;
+                        if (!parentList) {
+                            if(parentCategory) {
+                                parentCategory.items = [];
+                                parentList = parentCategory.items;
+                            }
+                        }
+                        parentList.push(newItem);
+                    } else {
+                        const { parent: parentList, index } = _getItemAndParentByPath(char.commands, itemPath);
+                        if(parentList && index > -1) parentList[index] = newItem;
+                    }
+                    saveData();
+                    localActions['close-skill-editor']();
+                },
+                'save-preset-item': () => {
+                    playSound('confirm');
+                    const { charIndex, itemPath } = LocalUIState.activeModal.data;
+                    const { parent: parentList, item, index } = _getItemAndParentByPath(AppState.party[charIndex].commands, itemPath);
+                    if (!item) return;
+
+                    item.costType = document.getElementById('preset-edit-cost-type').value;
+                    item.costValue = parseInt(document.getElementById('preset-edit-cost-value').value) || 0;
+                    item.effect = document.getElementById('preset-edit-effect').value;
+
+                    if (item.isHealing) {
+                        item.healStat = document.getElementById('preset-edit-heal-stat').value;
+                        item.healValue = parseInt(document.getElementById('preset-edit-heal-value').value) || 0;
+                    }
+                    parentList[index] = item;
+                    saveData();
+                    localActions['close-skill-editor']();
+                },
+                'confirm-delete-item': () => {
+                    playSound('confirm');
+                    const { charIndex, itemPath } = LocalUIState.activeModal.data;
+                    const { parent: parentItems, index } = _getItemAndParentByPath(AppState.party[charIndex].commands, itemPath);
+                    if (parentItems && index > -1) {
+                        parentItems.splice(index, 1);
+                        saveData();
+                    }
+                    localActions['close-skill-editor']();
+                },
+                'toggle-collapse': () => {
+                    playSound('navigate');
+                    const { charIndex } = LocalUIState.activeModal.data;
+                    const pathArr = data.path.split(',').map(Number);
+                    const { item } = _getItemAndParentByPath(AppState.party[charIndex].commands, pathArr);
+                    if (item && item.type === 'category') {
+                        item.isCollapsed = !item.isCollapsed;
+                        saveData();
+                        if(isOfflineMode) renderModal();
+                    }
+                },
+                'confirm-multi-target': () => {
+                    const { item, userCharIndex, selectedTargets } = LocalUIState.activeModal.data;
+                    applyAbilityEffect(AppState.party[userCharIndex], item, selectedTargets);
+                },
+                'select-target': () => {
+                    const {item, userCharIndex} = LocalUIState.activeModal.data;
+                    applyAbilityEffect(AppState.party[userCharIndex], item, [parseInt(data.targetCharIndex)]);
+                },
             };
+
+            // Actions that only affect the local UI
             const localActions = {
                 'open-menu': () => { playSound('confirm'); LocalUIState.activeMenus[cIndex].path.push(parseInt(data.itemIndex)); renderCommandMenus(); },
                 'go-back': () => { playSound('cancel'); LocalUIState.activeMenus[cIndex].path.pop(); renderCommandMenus(); },
@@ -481,8 +1035,16 @@
                 'adjust-stat': () => { playSound('navigate'); const panel = document.getElementById(`status-panel-${cIndex}`); const rect = panel.getBoundingClientRect(); LocalUIState.activeModal = {type:'adjust-stat', data:{charIndex:cIndex, stat:data.stat}, position: {x: rect.left + rect.width / 2, y: rect.top + rect.height / 2}}; renderModal(); },
                 'open-system-menu': () => { playSound('navigate'); LocalUIState.activeModal = { type: 'system-menu', data: {} }; renderModal(); },
                 'close-modal': () => { playSound('cancel'); LocalUIState.activeModal = null; renderAll(); },
-                'close-skill-editor': () => { playSound('cancel'); const { charIndex } = LocalUIState.activeModal.data; LocalUIState.activeModal.type = 'edit-character'; LocalUIState.activeModal.data.character = AppState.party[charIndex]; LocalUIState.activeModal.data.item = null; renderModal(); },
-                'close-modal-backdrop': () => { if(e.target.classList.contains('modal-backdrop') && !['edit-skill', 'edit-character', 'delete-confirm', 'edit-preset-item', 'confirm', 'admin-panel'].includes(LocalUIState.activeModal?.type) ) localActions['close-modal'](); },
+                'close-skill-editor': () => {
+                    playSound('cancel');
+                    const { charIndex } = LocalUIState.activeModal.data;
+                    LocalUIState.activeModal = {
+                        type:'edit-character',
+                        data:{ character: AppState.party[charIndex], charIndex }
+                    };
+                    renderModal();
+                },
+                'close-modal-backdrop': () => { if(e.target.classList.contains('modal-backdrop') && !['edit-skill', 'edit-character', 'delete-confirm', 'edit-preset-item', 'confirm', 'admin-panel', 'admin-prompt'].includes(LocalUIState.activeModal?.type) ) localActions['close-modal'](); },
                 'edit-character': () => { playSound('confirm'); LocalUIState.activeModal = {type:'edit-character', data:{character:AppState.party[cIndex], charIndex:cIndex}}; renderModal(); },
                 'edit-mode-toggle': () => { playSound('confirm'); LocalUIState.isEditMode = !LocalUIState.isEditMode; if (!LocalUIState.isEditMode) { LocalUIState.activeMenus = Array(4).fill(null).map(() => ({path: []})); } renderAll(); },
                 'copy-party-id': () => { const textToCopy = partyId; const textArea = document.createElement("textarea"); textArea.value = textToCopy; textArea.style.position = "fixed"; textArea.style.left = "-9999px"; document.body.appendChild(textArea); textArea.select(); try { document.execCommand('copy'); const p = e.target; const originalText = p.textContent; p.textContent = "Copied!"; p.style.color = 'var(--hp-color)'; setTimeout(() => { p.textContent = originalText; p.style.color = ''; }, 1500); } catch (err) { console.error('Fallback copy failed', err); } document.body.removeChild(textArea); },
@@ -497,31 +1059,515 @@
                 'import-character': () => document.getElementById(`character-import-${cIndex}`).click(),
                 'export-character': () => { playSound('confirm'); const char = AppState.party[cIndex]; const date = new Date(); const dateString = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`; const charData = JSON.stringify(char, null, 2); const a = document.createElement('a'); a.href = "data:text/json;charset=utf-8," + encodeURIComponent(charData); a.download = `${dateString}_${char.name.replace(/\s/g, '_')}_fabula_ultima.json`; a.click(); },
                 'upload-portrait': () => document.getElementById(`portrait-upload-${cIndex}`).click(),
-                'use-item': () => { const user = AppState.party[cIndex]; let item; const findItem = (items) => { for (const i of items) { if (i.name === data.itemName) { item = i; return true; } if (i.items && findItem(i.items)) return true; } return false; }; findItem(user.commands); if (!item) return; let canAfford = true; if (item.costType === '1/3 Current HP') { const cost = Math.floor(user.stats.hp.current / 3); if (user.stats.hp.current <= cost) canAfford = false; } else if (item.costType !== 'None') { const resLC = item.costType.toLowerCase(); if (user.stats[resLC].current < item.costValue) canAfford = false; } if (!canAfford) { playSound('error'); return; } const effect = item.effect.toLowerCase(); if (effect.includes('cure one status')) { const partyWithStatus = AppState.party.map((p, i) => ({...p, originalIndex: i})).filter(p => Object.values(p.status).some(s => s)); if (partyWithStatus.length === 0) { playSound('error'); return; } LocalUIState.activeModal = { type: 'tonic-target-selection', data: { item, userCharIndex: cIndex, partyWithStatus } }; renderModal(); return; } if (item.name === 'Magic Tent') { sharedActions['use-magic-tent'](user); return; } if (item.isHealing) { if (item.targeting.includes('All')) { const targets = []; AppState.party.forEach((_, i) => targets.push(i)); applyAbilityEffect(user, item, targets); } else if (item.targeting === '1 Target') { LocalUIState.activeModal = {type:'target-selection', data:{item, userCharIndex: cIndex}}; renderModal(); } else { LocalUIState.activeModal = {type:'target-selection-multi', data:{item, userCharIndex: cIndex, selectedTargets: []}}; renderModal(); } } else { const requiresTarget = effect.includes('recover'); if (requiresTarget) { LocalUIState.activeModal = {type:'target-selection', data:{item, userCharIndex: cIndex}}; renderModal(); } else { applyAbilityEffect(user, item, [cIndex]); } } },
-                'select-tonic-target': () => { const { item, userCharIndex } = LocalUIState.activeModal.data; LocalUIState.activeModal = { type: 'cure-status', data: { item, userCharIndex, targetCharIndex: parseInt(data.targetCharIndex) } }; renderModal(); },
-                'select-multi-target': () => { const { item, selectedTargets } = LocalUIState.activeModal.data; const maxTargetsMatch = item.targeting.match(/\d+/); const maxTargets = maxTargetsMatch ? parseInt(maxTargetsMatch[0]) : 1; const targetIndex = parseInt(data.targetCharIndex); const indexInSelection = selectedTargets.indexOf(targetIndex); if (indexInSelection > -1) { selectedTargets.splice(indexInSelection, 1); } else { if(selectedTargets.length < maxTargets) { selectedTargets.push(targetIndex); } else { playSound('error'); } } renderModal(); },
-                'edit-item': () => { playSound('confirm'); const { charIndex } = LocalUIState.activeModal.data; const pathArr = data.path ? data.path.split(',').map(Number) : []; const { item } = _getItemAndParentByPath(AppState.party[charIndex].commands, pathArr); if (!item) return; const modalData = { item: JSON.parse(JSON.stringify(item)), itemPath: pathArr, isNew: false }; if (PRESET_ITEMS.includes(item.name)) { LocalUIState.activeModal.type = 'edit-preset-item'; } else { LocalUIState.activeModal.type = 'edit-skill'; } LocalUIState.activeModal.data = { ...LocalUIState.activeModal.data, ...modalData }; renderModal(); },
-                'edit-item-from-detail': () => { playSound('confirm'); const { item, charIndex } = LocalUIState.activeModal.data; const findPath = (items, name, currentPath) => { for (let i = 0; i < items.length; i++) { const path = [...currentPath, i]; if (items[i].name === name) return path; if (items[i].items) { const result = findPath(items[i].items, name, path); if (result) return result; } } return null; }; const itemPath = findPath(AppState.party[charIndex].commands, item.name, []); if (!itemPath) { playSound('error'); return; } LocalUIState.activeModal = { type: 'edit-character', data: { character: AppState.party[charIndex], charIndex } }; const modalData = { item: JSON.parse(JSON.stringify(item)), itemPath, isNew: false, charIndex }; if (PRESET_ITEMS.includes(item.name)) { LocalUIState.activeModal.type = 'edit-preset-item'; } else { LocalUIState.activeModal.type = 'edit-skill'; } LocalUIState.activeModal.data = { ...LocalUIState.activeModal.data, ...modalData }; renderModal(); },
-                'add-item': () => { playSound('confirm'); const { charIndex } = LocalUIState.activeModal.data; const pathArr = data.path ? data.path.split(',').map(Number) : []; LocalUIState.activeModal.type = 'edit-skill'; LocalUIState.activeModal.data.item = { type: data.type }; LocalUIState.activeModal.data.itemPath = pathArr; LocalUIState.activeModal.data.newType = data.type; LocalUIState.activeModal.data.isNew = true; renderModal(); },
-                'delete-item': () => { playSound('error'); const { charIndex } = LocalUIState.activeModal.data; const pathArr = (data.path ? data.path.split(',') : LocalUIState.activeModal.data.itemPath).map(Number); const { item: itemToDelete } = _getItemAndParentByPath(AppState.party[charIndex].commands, pathArr); if (!itemToDelete) return; LocalUIState.activeModal = { type: 'delete-confirm', data: { ...LocalUIState.activeModal.data, itemPath: pathArr, itemName: itemToDelete.name, itemType: itemToDelete.type } }; renderModal(); },
-                'open-admin-prompt': async () => { const pass = prompt("Enter Admin Password:"); if (pass === 'Ooble-Loodle Bloodle-Doo') { LocalUIState.activeModal = { type: 'admin-panel', data: { isLoading: true, sessions: [] } }; renderModal(); try { const querySnapshot = await db.collection('parties').get(); const sessions = querySnapshot.docs.map(doc => doc.id); LocalUIState.activeModal.data = { isLoading: false, sessions }; } catch(error) { LocalUIState.activeModal.data = { isLoading: false, sessions: [], error: error.message }; } renderModal(); } else if (pass) { alert("Incorrect Password."); } },
+                'use-item': () => {
+                    const user = AppState.party[cIndex];
+                    let item;
+                    const findItem = (items) => { for (const i of items) { if (i.name === data.itemName) { item = i; return true; } if (i.items && findItem(i.items)) return true; } return false; };
+                    findItem(user.commands);
+                    if (!item) return;
+
+                    let canAfford = true;
+                    if (item.costType === '1/3 Current HP') {
+                        const cost = Math.floor(user.stats.hp.current / 3);
+                        if (user.stats.hp.current <= cost) canAfford = false;
+                    } else if (item.costType !== 'None') {
+                        const resLC = item.costType.toLowerCase();
+                        if (user.stats[resLC].current < item.costValue) canAfford = false;
+                    }
+                    if (!canAfford) { playSound('error'); return; }
+
+                    const effect = item.effect.toLowerCase();
+                    if (effect.includes('cure one status')) {
+                        const partyWithStatus = AppState.party.map((p, i) => ({...p, originalIndex: i})).filter(p => Object.values(p.status).some(s => s));
+                        if (partyWithStatus.length === 0) { playSound('error'); return; }
+                        LocalUIState.activeModal = { type: 'tonic-target-selection', data: { item, userCharIndex: cIndex, partyWithStatus } };
+                        renderModal();
+                        return;
+                    }
+                    if (item.name === 'Magic Tent') {
+                        sharedActions['use-magic-tent'](user);
+                        return;
+                    }
+                    if (item.isHealing) {
+                        if (item.targeting.includes('All')) {
+                            const targets = [];
+                            AppState.party.forEach((_, i) => targets.push(i));
+                            applyAbilityEffect(user, item, targets);
+                        } else if (item.targeting === '1 Target') {
+                            LocalUIState.activeModal = {type:'target-selection', data:{item, userCharIndex: cIndex}};
+                            renderModal();
+                        } else {
+                            LocalUIState.activeModal = {type:'target-selection-multi', data:{item, userCharIndex: cIndex, selectedTargets: []}};
+                            renderModal();
+                        }
+                    } else {
+                        const requiresTarget = effect.includes('recover');
+                        if (requiresTarget) {
+                            LocalUIState.activeModal = {type:'target-selection', data:{item, userCharIndex: cIndex}};
+                            renderModal();
+                        } else {
+                            applyAbilityEffect(user, item, [cIndex]);
+                        }
+                    }
+                },
+                'select-tonic-target': () => {
+                    const { item, userCharIndex } = LocalUIState.activeModal.data;
+                    LocalUIState.activeModal = { type: 'cure-status', data: { item, userCharIndex, targetCharIndex: parseInt(data.targetCharIndex) } };
+                    renderModal();
+                },
+                'select-multi-target': () => {
+                    const { item, selectedTargets } = LocalUIState.activeModal.data;
+                    const maxTargetsMatch = item.targeting.match(/\d+/);
+                    const maxTargets = maxTargetsMatch ? parseInt(maxTargetsMatch[0]) : 1;
+                    const targetIndex = parseInt(data.targetCharIndex);
+                    const indexInSelection = selectedTargets.indexOf(targetIndex);
+                    if (indexInSelection > -1) {
+                        selectedTargets.splice(indexInSelection, 1);
+                    } else {
+                        if(selectedTargets.length < maxTargets) {
+                            selectedTargets.push(targetIndex);
+                        } else {
+                            playSound('error');
+                        }
+                    }
+                    renderModal();
+                },
+                'edit-item': () => {
+                    playSound('confirm');
+                    const { charIndex } = LocalUIState.activeModal.data;
+                    const pathArr = data.path ? data.path.split(',').map(Number) : [];
+                    const { item } = _getItemAndParentByPath(AppState.party[charIndex].commands, pathArr);
+                    if (!item) return;
+
+                    const modalData = { item: JSON.parse(JSON.stringify(item)), itemPath: pathArr, isNew: false };
+                    if (PRESET_ITEMS.includes(item.name)) {
+                        LocalUIState.activeModal.type = 'edit-preset-item';
+                    } else {
+                        LocalUIState.activeModal.type = 'edit-skill';
+                    }
+                    LocalUIState.activeModal.data = { ...LocalUIState.activeModal.data, ...modalData };
+                    renderModal();
+                },
+                'edit-item-from-detail': () => {
+                    playSound('confirm');
+                    const { item, charIndex } = LocalUIState.activeModal.data;
+                    const findPath = (items, name, currentPath) => {
+                        for (let i = 0; i < items.length; i++) {
+                            const path = [...currentPath, i];
+                            if (items[i].name === name) return path;
+                            if (items[i].items) {
+                                const result = findPath(items[i].items, name, path);
+                                if (result) return result;
+                            }
+                        }
+                        return null;
+                    };
+                    const itemPath = findPath(AppState.party[charIndex].commands, item.name, []);
+                    if (!itemPath) { playSound('error'); return; }
+                    
+                    const modalData = { item: JSON.parse(JSON.stringify(item)), itemPath, isNew: false, charIndex };
+                    LocalUIState.activeModal = {
+                        type: PRESET_ITEMS.includes(item.name) ? 'edit-preset-item' : 'edit-skill',
+                        data: { character: AppState.party[charIndex], charIndex, ...modalData }
+                    };
+                    renderModal();
+                },
+                'add-item': () => {
+                    playSound('confirm');
+                    const { charIndex } = LocalUIState.activeModal.data;
+                    const pathArr = data.path ? data.path.split(',').map(Number) : [];
+                    LocalUIState.activeModal.type = 'edit-skill';
+                    LocalUIState.activeModal.data.item = { type: data.type };
+                    LocalUIState.activeModal.data.itemPath = pathArr;
+                    LocalUIState.activeModal.data.newType = data.type;
+                    LocalUIState.activeModal.data.isNew = true;
+                    renderModal();
+                },
+                'delete-item': () => {
+                    playSound('error');
+                    const { charIndex } = LocalUIState.activeModal.data;
+                    const pathArr = (data.path ? data.path.split(',') : LocalUIState.activeModal.data.itemPath).map(Number);
+                    const { item: itemToDelete } = _getItemAndParentByPath(AppState.party[charIndex].commands, pathArr);
+                    if (!itemToDelete) return;
+
+                    LocalUIState.activeModal = {
+                        type: 'delete-confirm',
+                        data: { ...LocalUIState.activeModal.data, itemPath: pathArr, itemName: itemToDelete.name, itemType: itemToDelete.type }
+                    };
+                    renderModal();
+                },
+                'open-admin-prompt': () => {
+                    LocalUIState.activeModal = { type: 'admin-prompt', data: {} };
+                    renderModal();
+                },
+                'submit-admin-password': async () => {
+                    const input = document.getElementById('admin-password-input');
+                    const pass = input.value;
+                    if (pass === 'Ooble-Loodle Bloodle-Doo') {
+                        playSound('confirm');
+                        LocalUIState.activeModal = { type: 'admin-panel', data: { isLoading: true, sessions: [] } };
+                        renderModal();
+                        try {
+                            const querySnapshot = await db.collection('parties').get();
+                            const sessions = querySnapshot.docs.map(doc => doc.id);
+                            LocalUIState.activeModal.data = { isLoading: false, sessions };
+                        } catch(error) {
+                            LocalUIState.activeModal.data = { isLoading: false, sessions: [], error: error.message };
+                        }
+                        renderModal();
+                    } else {
+                        playSound('error');
+                        document.getElementById('admin-error').textContent = "Incorrect Password.";
+                        input.value = '';
+                    }
+                },
                 'admin-join-session': () => { joinParty(data.partyId); },
-                'admin-delete-session-prompt': () => { LocalUIState.activeModal = { type: 'confirm', data: { title: 'Admin Delete Session', message: `Permanently delete session: ${data.partyId}?`, confirmAction: 'confirm-admin-delete', confirmText: 'Delete', confirmClass: 'text-red-500', partyId: data.partyId } }; renderModal(); },
-                'confirm-admin-delete': async () => { try { await db.collection('parties').doc(data.partyId).delete(); localActions['open-admin-prompt'](); } catch (error) { LocalUIState.activeModal.data.error = error.message; renderModal(); } },
+                'admin-delete-session-prompt': () => {
+                    LocalUIState.activeModal = {
+                        type: 'confirm',
+                        data: {
+                            title: 'Admin Delete Session',
+                            message: `Permanently delete session: ${data.partyId}?`,
+                            confirmAction: 'confirm-admin-delete',
+                            confirmText: 'Delete',
+                            confirmClass: 'text-red-500',
+                            partyId: data.partyId
+                        }
+                    };
+                    renderModal();
+                },
+                'confirm-admin-delete': async () => {
+                    try {
+                        await db.collection('parties').doc(data.partyId).delete();
+                        localActions['submit-admin-password'](); // Re-submit with correct pass to refresh list
+                    } catch (error) {
+                        LocalUIState.activeModal.data.error = error.message;
+                        renderModal();
+                    }
+                },
             };
             
-            if (sharedActions[action]) sharedActions[action]();
-            else if (localActions[action]) localActions[action]();
+            if (sharedActions[action]) {
+                sharedActions[action]();
+            } else if (localActions[action]) {
+                localActions[action]();
+            }
         }
+        
+        // --- SOUND & MISC HELPERS ---
         
         function initializeSounds() {if (soundInitialized) return; soundInitialized = true; if (typeof Tone === 'undefined') { console.error("Tone.js library not found."); return; } try { volumeNode = new Tone.Volume(Tone.gainToDb(LocalUIState.settings.volume)).toDestination(); volumeNode.mute = LocalUIState.settings.muted; sounds = { navigate: new Tone.Synth({ oscillator: { type: "fmsquare", harmonicity: 0.5 }, envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.1 } }).connect(volumeNode), confirm: new Tone.Synth({ oscillator: { type: "sine" }, envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 } }).connect(volumeNode), select: new Tone.Synth({ oscillator: { type: "triangle", }, envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 } }).connect(volumeNode), cancel: new Tone.Synth({ oscillator: { type: "sine" }, envelope: { attack: 0.01, decay: 0.3, sustain: 0, release: 0.3 } }).connect(volumeNode), error: new Tone.Synth({ oscillator: { type: "sawtooth" }, envelope: { attack: 0.01, decay: 0.5, sustain: 0, release: 0.1 } }).connect(volumeNode), healParty: new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.005, decay: 0.2, sustain: 0.1, release: 0.2 } }).connect(volumeNode), }; } catch (e) { console.error("Could not initialize Tone.js sounds.", e); sounds = null; }}
         function playSound(sound) {if (!soundInitialized) initializeSounds(); if (!sounds) return; if (Tone.context.state !== 'running') { Tone.start().catch(e => console.error("Tone.js start failed:", e)); } const soundMap = { 'navigate': 'A4', 'confirm': 'C6', 'select': 'G3', 'cancel': 'G4', 'error': 'C2' }; if (sound === 'healParty') { const now = Tone.now(); sounds.healParty.triggerAttackRelease(["C5", "E5", "G5", "C6"], "8n", now); } else if (sounds[sound]) { sounds[sound].triggerAttackRelease(soundMap[sound], "8n"); }}
-        function addModalEventListeners(type, data) { if (type === 'system-menu') { document.getElementById('volume-slider').addEventListener('input', (e) => { LocalUIState.settings.volume = parseFloat(e.target.value); if(volumeNode) volumeNode.volume.value = Tone.gainToDb(LocalUIState.settings.volume); if(isOfflineMode) saveData(); }); document.getElementById('mute-btn').addEventListener('click', (e) => { LocalUIState.settings.muted = !LocalUIState.settings.muted; if(volumeNode) volumeNode.mute = LocalUIState.settings.muted; e.target.textContent = LocalUIState.settings.muted ? 'Unmute' : 'Mute'; if(isOfflineMode) saveData(); }); document.getElementById('import-file-input').addEventListener('change', (e) => { if (!e.target.files[0]) return; const reader = new FileReader(); reader.onload = (event) => { try { const imported = JSON.parse(event.target.result); if (imported.party) { Object.assign(AppState, imported); if(imported.localSettings) LocalUIState.settings = imported.localSettings; LocalUIState.activeModal = null; renderAll(); saveData(); playSound('confirm'); } } catch (err) { playSound('error'); } }; reader.readAsText(e.target.files[0]); }); } else if(type === 'edit-character'){ setupDragAndDrop(data.charIndex); const charIndex = data.charIndex; document.getElementById(`portrait-upload-${charIndex}`).addEventListener('change', e => { if(e.target.files[0]) { resizeImage(e.target.files[0], 150, 150, (resizedDataUrl) => { AppState.party[charIndex].portrait = resizedDataUrl; saveData(); }); } }); document.querySelectorAll('input[data-path], select[data-path]').forEach(el => { el.addEventListener('change', e => {const path = e.target.dataset.path; let value = e.target.type === 'number' ? parseInt(e.target.value) || 0 : e.target.value; let obj = AppState.party[charIndex]; const keys = path.split('.'); keys.forEach((key, i) => { if (i === keys.length - 1) { obj[key] = value; } else { obj = obj[key]; } }); saveData();}); }); document.getElementById(`character-import-${charIndex}`).addEventListener('change', e => { if (!e.target.files[0]) return; const reader = new FileReader(); reader.onload = (event) => { try { const importedChar = JSON.parse(event.target.result); if (importedChar.name && importedChar.stats && importedChar.commands) { const originalId = AppState.party[charIndex].id; AppState.party[charIndex] = importedChar; AppState.party[charIndex].id = originalId; saveData(); playSound('confirm'); LocalUIState.activeModal.data.character = AppState.party[charIndex]; renderModal(); } else { playSound('error'); } } catch (err) { playSound('error'); } }; reader.readAsText(e.target.files[0]); }); } else if (type === 'adjust-stat') { const input = document.getElementById('adjust-value'); input.focus(); input.select(); input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); document.querySelector('[data-action="confirm-adjust-stat"][data-op="add"]').click(); }}); } else if (type === 'edit-skill') { const checkbox = document.getElementById('skill-edit-is-healing'); if (checkbox) { const healingOptions = document.getElementById('healing-options'); checkbox.addEventListener('change', (e) => { healingOptions.classList.toggle('hidden', !e.target.checked); }); } const check1 = document.getElementById('skill-edit-check1'); if(check1) { const check2 = document.getElementById('skill-edit-check2'); const checkBonus = document.getElementById('skill-edit-check-bonus'); check1.addEventListener('change', (e) => { const isNone = e.target.value === 'None'; check2.disabled = isNone; checkBonus.disabled = isNone; }); } }}
-        function applyAbilityEffect(userChar, ability, targetCharIndices) { let costPaid = false; const targetIndices = Array.isArray(targetCharIndices) ? targetCharIndices : [targetCharIndices]; if (ability.costType === '1/3 Current HP') { const cost = Math.floor(userChar.stats.hp.current / 3); if (userChar.stats.hp.current > cost) { userChar.stats.hp.current -= cost; costPaid = true; } } else if (ability.costType !== 'None') { const resLC = ability.costType.toLowerCase(); if (userChar.stats[resLC].current >= ability.costValue) { userChar.stats[resLC].current -= ability.costValue; costPaid = true; } } else { costPaid = true; } if (!costPaid) { playSound('error'); return; } targetIndices.forEach(targetCharIndex => { const targetChar = AppState.party[targetCharIndex]; if (ability.isHealing) { const statToHeal = ability.healStat.toLowerCase(); const s = targetChar.stats[statToHeal]; s.current = Math.min(s.max, s.current + ability.healValue); } const effect = ability.effect.toLowerCase(); if (effect.includes('cure one status')) { const userCharIndex = AppState.party.findIndex(p => p.id === userChar.id); const hasStatus = Object.values(targetChar.status).some(s => s); if (hasStatus) { LocalUIState.activeModal = { type: 'cure-status', data: { item: ability, userCharIndex, targetCharIndex } }; renderModal(); return; } } }); playSound('confirm'); if(LocalUIState.activeModal?.type !== 'cure-status') { LocalUIState.activeModal = null; } saveData(); if (isOfflineMode || !targetIndices.some(t => Object.values(AppState.party[t].status).some(s=>s))) { renderAll(); } }
-        function createDefaultCharacter(id) { const defaultItem = { name: 'Default', costType: 'None', costValue: 0, effect: '', magicCheck: ['DEX', 'DEX', 0], damage: '', damageType: 'Physical', duration: '', target: '', type: 'item', isHealing: false, healStat: 'HP', healValue: 0, targeting: '1 Target' }; const character = { id, name: `Hero ${id + 1}`, portrait: `https://placehold.co/100x100/1a1a5c/ffffff?text=P${id + 1}`, stats: { hp: { current: 50, max: 50 }, mp: { current: 20, max: 20 }, ip: { current: 6, max: 6 } }, def: 10, mdef: 10, attributes: { DEX: 'd6', INS: 'd6', MIG: 'd6', WLP: 'd6' }, status: { slow: false, dazed: false, weak: false, shaken: false, poisoned: false, enraged: false }, commands: [ { name: 'Attack', type: 'category', items: [{ ...defaultItem, name: 'Basic Attack', effect: '[[MIG]] vs Defense.' }] }, { name: 'Magic', type: 'category', items: [{ ...defaultItem, name: 'Fire', costType: 'MP', costValue: 5, damageType: 'Fire', effect: 'Deals minor Fire damage.' }] }, { name: 'Skills', type: 'category', items: [{ ...defaultItem, name: 'Blood Blade', costType: '1/3 Current HP', effect: 'Deals damage equal to HP spent.' }] }, { name: 'Items', type: 'category', items: [ { ...defaultItem, name: 'Remedy', costType: 'IP', costValue: 3, effect: 'Recover 50 HP.', isHealing: true, healStat: 'HP', healValue: 50, targeting: '1 Target' }, { ...defaultItem, name: 'Elixir', costType: 'IP', costValue: 3, effect: 'Recover 50 MP.', isHealing: true, healStat: 'MP', healValue: 50, targeting: '1 Target' }, { ...defaultItem, name: 'Tonic', costType: 'IP', costValue: 2, effect: 'Cure one status.' }, { ...defaultItem, name: 'Magic Tent', costType: 'IP', costValue: 4, effect: 'Fully rest.' }, ] }, ], customization: { categoryColor: '#ffff00', itemColor: '#ffffff', nameColor: '#ffff00' } }; if (id === 0) { character.attributes = { DEX: 'd10', INS: 'd10', MIG: 'd10', WLP: 'd10' }; const attackCategory = character.commands.find(c => c.name === 'Attack'); if (attackCategory) { attackCategory.items.push( { ...defaultItem, name: 'A Very Very Long Skill Name With No Cost', effect: 'This is a test skill.' }, { ...defaultItem, name: 'Another Ridiculously Long Skill Name With Cost', costType: 'MP', costValue: 99, effect: 'This is another test skill.' } ); } } return character; }
-        function setupMarqueeListeners() { document.getElementById('app-container').addEventListener('mouseover', (e) => { const skillNameContainer = e.target.closest('.truncate-on-hover'); if (skillNameContainer) { const textSpan = skillNameContainer.querySelector('span'); if (textSpan && skillNameContainer.offsetWidth < textSpan.scrollWidth && !skillNameContainer._animation) { const originalText = textSpan.textContent; skillNameContainer._originalText = originalText; const separator = " \u00A0\u00A0\u00A0 "; textSpan.textContent = originalText + separator + originalText; const scrollDistance = textSpan.scrollWidth / 2; const duration = scrollDistance * 20; const animation = textSpan.animate([ { transform: 'translateX(0)' }, { transform: `translateX(-${scrollDistance}px)` } ], { duration: duration, delay: 0, iterations: Infinity, easing: 'linear' }); skillNameContainer._animation = animation; } } }); document.getElementById('app-container').addEventListener('mouseout', (e) => { const skillNameContainer = e.target.closest('.truncate-on-hover'); if (skillNameContainer && skillNameContainer._animation) { skillNameContainer._animation.cancel(); skillNameContainer._animation = null; const textSpan = skillNameContainer.querySelector('span'); if(textSpan && skillNameContainer._originalText) { textSpan.textContent = skillNameContainer._originalText; } } }); }
+        
+        function addModalEventListeners(type, data) {
+            if (type === 'system-menu') {
+                document.getElementById('volume-slider').addEventListener('input', (e) => {
+                    LocalUIState.settings.volume = parseFloat(e.target.value);
+                    if(volumeNode) volumeNode.volume.value = Tone.gainToDb(LocalUIState.settings.volume);
+                    if(isOfflineMode) saveData();
+                });
+                document.getElementById('mute-btn').addEventListener('click', (e) => {
+                    LocalUIState.settings.muted = !LocalUIState.settings.muted;
+                    if(volumeNode) volumeNode.mute = LocalUIState.settings.muted;
+                    e.target.textContent = LocalUIState.settings.muted ? 'Unmute' : 'Mute';
+                    if(isOfflineMode) saveData();
+                });
+                document.getElementById('import-file-input').addEventListener('change', (e) => {
+                    if (!e.target.files[0]) return;
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        try {
+                            const imported = JSON.parse(event.target.result);
+                            if (imported.party) {
+                                AppState.party = imported.party;
+                                AppState.settings = imported.settings || { backgroundUrl: '' };
+                                if (imported.localSettings) LocalUIState.settings = imported.localSettings;
+                                LocalUIState.activeModal = null;
+                                renderAll();
+                                saveData();
+                                playSound('confirm');
+                            }
+                        } catch (err) {
+                            playSound('error');
+                        }
+                    };
+                    reader.readAsText(e.target.files[0]);
+                });
+            } else if (type === 'edit-character'){
+                setupDragAndDrop(data.charIndex);
+                const charIndex = data.charIndex;
+                document.getElementById(`portrait-upload-${charIndex}`).addEventListener('change', e => {
+                    if(e.target.files[0]) {
+                        resizeImage(e.target.files[0], 150, 150, (resizedDataUrl) => {
+                            AppState.party[charIndex].portrait = resizedDataUrl;
+                            saveData();
+                        });
+                    }
+                });
+                document.querySelectorAll('input[data-path], select[data-path]').forEach(el => {
+                    el.addEventListener('change', e => {
+                        const path = e.target.dataset.path;
+                        let value = e.target.type === 'number' ? parseInt(e.target.value) || 0 : e.target.value;
+                        let obj = AppState.party[charIndex];
+                        const keys = path.split('.');
+                        keys.forEach((key, i) => {
+                            if (i === keys.length - 1) { obj[key] = value; } else { obj = obj[key]; }
+                        });
+                        saveData();
+                    });
+                });
+                 document.getElementById(`character-import-${charIndex}`).addEventListener('change', e => {
+                    if (!e.target.files[0]) return;
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        try {
+                            const importedChar = JSON.parse(event.target.result);
+                            if (importedChar.name && importedChar.stats && importedChar.commands) {
+                                const originalId = AppState.party[charIndex].id;
+                                AppState.party[charIndex] = importedChar;
+                                AppState.party[charIndex].id = originalId; // Preserve original ID
+                                saveData();
+                                playSound('confirm');
+                                // Force modal re-render with new data
+                                LocalUIState.activeModal.data.character = AppState.party[charIndex];
+                                renderModal();
+                            } else { playSound('error'); }
+                        } catch (err) { playSound('error'); }
+                    };
+                    reader.readAsText(e.target.files[0]);
+                });
+            } else if (type === 'adjust-stat') {
+                const input = document.getElementById('adjust-value');
+                input.focus();
+                input.select();
+                input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); document.querySelector('[data-action="confirm-adjust-stat"][data-op="add"]').click(); }});
+            } else if (type === 'edit-skill') {
+                const checkbox = document.getElementById('skill-edit-is-healing');
+                if (checkbox) {
+                    const healingOptions = document.getElementById('healing-options');
+                    checkbox.addEventListener('change', (e) => {
+                        healingOptions.classList.toggle('hidden', !e.target.checked);
+                    });
+                }
+                const check1 = document.getElementById('skill-edit-check1');
+                if(check1) {
+                    const check2 = document.getElementById('skill-edit-check2');
+                    const checkBonus = document.getElementById('skill-edit-check-bonus');
+                    check1.addEventListener('change', (e) => {
+                        const isNone = e.target.value === 'None';
+                        check2.disabled = isNone;
+                        checkBonus.disabled = isNone;
+                    });
+                }
+            } else if (type === 'admin-prompt') {
+                const input = document.getElementById('admin-password-input');
+                input.focus();
+                input.addEventListener('keydown', e => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        document.querySelector('[data-action="submit-admin-password"]').click();
+                    }
+                });
+            }
+        }
+        function applyAbilityEffect(userChar, ability, targetCharIndices) {
+            let costPaid = false;
+            const targetIndices = Array.isArray(targetCharIndices) ? targetCharIndices : [targetCharIndices];
+
+            if (ability.costType === '1/3 Current HP') {
+                const cost = Math.floor(userChar.stats.hp.current / 3);
+                if (userChar.stats.hp.current > cost) {
+                    userChar.stats.hp.current -= cost;
+                    costPaid = true;
+                }
+            } else if (ability.costType !== 'None') {
+                const resLC = ability.costType.toLowerCase();
+                if (userChar.stats[resLC].current >= ability.costValue) {
+                    userChar.stats[resLC].current -= ability.costValue;
+                    costPaid = true;
+                }
+            } else {
+                costPaid = true;
+            }
+
+            if (!costPaid) {
+                playSound('error');
+                return;
+            }
+
+            let opensCureModal = false;
+            targetIndices.forEach(targetCharIndex => {
+                const targetChar = AppState.party[targetCharIndex];
+                if (ability.isHealing) {
+                    const statToHeal = ability.healStat.toLowerCase();
+                    const s = targetChar.stats[statToHeal];
+                    s.current = Math.min(s.max, s.current + ability.healValue);
+                }
+                
+                const effect = ability.effect.toLowerCase();
+                if (effect.includes('cure one status')) {
+                    const userCharIndex = AppState.party.findIndex(p => p.id === userChar.id);
+                    const hasStatus = Object.values(targetChar.status).some(s => s);
+                    if (hasStatus) {
+                        opensCureModal = true;
+                        LocalUIState.activeModal = { type: 'cure-status', data: { item: ability, userCharIndex, targetCharIndex } };
+                        renderModal();
+                    }
+                }
+            });
+            
+            playSound('confirm');
+            
+            if(!opensCureModal) {
+                 LocalUIState.activeModal = null;
+            }
+            
+            saveData();
+
+            const shouldRenderAll = isOfflineMode || !targetIndices.some(t => {
+                const targetChar = AppState.party[t];
+                return targetChar && targetChar.status && Object.values(targetChar.status).some(s => s);
+            });
+            
+            if (shouldRenderAll && !opensCureModal) {
+                renderAll();
+            }
+        }
+        function createDefaultCharacter(id) {
+            const defaultItem = { name: 'Default', costType: 'None', costValue: 0, effect: '', magicCheck: ['DEX', 'DEX', 0], damage: '', damageType: 'Physical', duration: '', target: '', type: 'item', isHealing: false, healStat: 'HP', healValue: 0, targeting: '1 Target' };
+            const character = {
+                id,
+                name: `Hero ${id + 1}`,
+                portrait: `https://placehold.co/100x100/1a1a5c/ffffff?text=P${id + 1}`,
+                stats: { hp: { current: 50, max: 50 }, mp: { current: 20, max: 20 }, ip: { current: 6, max: 6 } },
+                def: 10,
+                mdef: 10,
+                attributes: { DEX: 'd6', INS: 'd6', MIG: 'd6', WLP: 'd6' },
+                status: { slow: false, dazed: false, weak: false, shaken: false, poisoned: false, enraged: false },
+                commands: [
+                    { name: 'Attack', type: 'category', items: [{ ...defaultItem, name: 'Basic Attack', effect: '[[MIG]] vs Defense.' }] },
+                    { name: 'Magic', type: 'category', items: [{ ...defaultItem, name: 'Fire', costType: 'MP', costValue: 5, damageType: 'Fire', effect: 'Deals minor Fire damage.' }] },
+                    { name: 'Skills', type: 'category', items: [{ ...defaultItem, name: 'Blood Blade', costType: '1/3 Current HP', effect: 'Deals damage equal to HP spent.' }] },
+                    { name: 'Items', type: 'category', items: [
+                        { ...defaultItem, name: 'Remedy', costType: 'IP', costValue: 3, effect: 'Recover 50 HP.', isHealing: true, healStat: 'HP', healValue: 50, targeting: '1 Target' },
+                        { ...defaultItem, name: 'Elixir', costType: 'IP', costValue: 3, effect: 'Recover 50 MP.', isHealing: true, healStat: 'MP', healValue: 50, targeting: '1 Target' },
+                        { ...defaultItem, name: 'Tonic', costType: 'IP', costValue: 2, effect: 'Cure one status.' },
+                        { ...defaultItem, name: 'Magic Tent', costType: 'IP', costValue: 4, effect: 'Fully rest.' },
+                    ] },
+                ],
+                customization: { categoryColor: '#ffff00', itemColor: '#ffffff', nameColor: '#ffff00' }
+            };
+
+            if (id === 0) {
+                character.attributes = { DEX: 'd10', INS: 'd10', MIG: 'd10', WLP: 'd10' };
+                const attackCategory = character.commands.find(c => c.name === 'Attack');
+                if (attackCategory) {
+                    attackCategory.items.push(
+                        { ...defaultItem, name: 'A Very Very Long Skill Name With No Cost', effect: 'This is a test skill.' },
+                        { ...defaultItem, name: 'Another Ridiculously Long Skill Name With Cost', costType: 'MP', costValue: 99, effect: 'This is another test skill.' }
+                    );
+                }
+            }
+            return character;
+        }
+        function setupMarqueeListeners() {
+            document.getElementById('app-container').addEventListener('mouseover', (e) => {
+                const skillNameContainer = e.target.closest('.truncate-on-hover');
+                if (skillNameContainer) {
+                    const textSpan = skillNameContainer.querySelector('span');
+                    if (textSpan && skillNameContainer.offsetWidth < textSpan.scrollWidth && !skillNameContainer._animation) {
+                        const originalText = textSpan.textContent;
+                        skillNameContainer._originalText = originalText;
+                        const separator = " \u00A0\u00A0\u00A0 ";
+                        textSpan.textContent = originalText + separator + originalText;
+
+                        const scrollDistance = textSpan.scrollWidth / 2;
+                        const duration = scrollDistance * 20;
+                        
+                        const animation = textSpan.animate([
+                            { transform: 'translateX(0)' },
+                            { transform: `translateX(-${scrollDistance}px)` }
+                        ], {
+                            duration: duration,
+                            delay: 0,
+                            iterations: Infinity,
+                            easing: 'linear'
+                        });
+                        skillNameContainer._animation = animation;
+                    }
+                }
+            });
+            document.getElementById('app-container').addEventListener('mouseout', (e) => {
+                const skillNameContainer = e.target.closest('.truncate-on-hover');
+                 if (skillNameContainer && skillNameContainer._animation) {
+                    skillNameContainer._animation.cancel();
+                    skillNameContainer._animation = null;
+                    const textSpan = skillNameContainer.querySelector('span');
+                    if(textSpan && skillNameContainer._originalText) {
+                        textSpan.textContent = skillNameContainer._originalText;
+                    }
+                }
+            });
+        }
         function getItemsFromPath(char, path) { let currentLevel = char.commands; for (const index of path) { if (currentLevel && currentLevel[index] && currentLevel[index].items) { currentLevel = currentLevel[index].items; } else if (currentLevel && currentLevel[index]) { return currentLevel; } else { return char.commands; } } return currentLevel; }
-        function renderStatusPanels() { const container = document.getElementById('status-panels'); container.innerHTML = AppState.party.map((char, index) => { const isCrisis = char.stats.hp.current <= Math.floor(char.stats.hp.max / 2); return ` <div id="status-panel-${index}" class="jrpg-window flex flex-col gap-2 p-2"> <div class="flex justify-between items-start"> <div data-action="open-info-screen" data-char-index="${index}" class="cursor-pointer portrait-container ${isCrisis ? 'crisis' : ''}"> <img src="${char.portrait}" alt="${char.name}" class="w-16 h-16 object-cover border-2 border-white flex-shrink-0" onerror="this.src='https://placehold.co/100x100/1a1a5c/ffffff?text=ERR'"> </div> <div class="text-right"> <div>DEF: ${char.def}</div> <div>M.DEF: ${char.mdef}</div> </div> </div> <div class="space-y-1"> ${['hp', 'mp', 'ip'].map(stat => { const s = char.stats[stat]; const barColor = (stat === 'hp' && isCrisis) ? 'var(--crisis-color)' : `var(--${stat}-color)`; if (stat === 'hp') { const basePercent = s.max > 0 ? (s.current / s.max) * 100 : 0; const tempPercent = s.current > s.max ? ((s.current - s.max) / s.max) * 100 : 0; const cappedBasePercent = Math.min(basePercent, 100); const cappedTempPercent = Math.min(basePercent - 100, 100); return `<div class="flex items-center gap-2"> <span style="color:${barColor};">HP</span> <div class="progress-bar-container flex-grow" data-action="adjust-stat" data-char-index="${index}" data-stat="hp"> <div class="progress-bar" style="width:${cappedBasePercent}%; background-color: ${barColor}; z-index: 1;"></div> ${s.current > s.max ? `<div class="progress-bar" style="width:${cappedTempPercent}%; background-color: var(--hp-temp-color); z-index: 2;"></div>` : ''} </div> <span class="w-20 text-right">${s.current}/${s.max}</span> </div>`; } const percent = s.max > 0 ? (s.current / s.max) * 100 : 0; const cappedPercent = Math.min(percent, 100); return `<div class="flex items-center gap-2"> <span style="color:${barColor};">${stat.toUpperCase()}</span> <div class="progress-bar-container flex-grow" data-action="adjust-stat" data-char-index="${index}" data-stat="${stat}"> <div class="progress-bar" style="width:${cappedPercent}%; background-color: ${barColor};"></div> </div> <span class="w-20 text-right">${s.current}/${s.max}</span> </div>`; }).join('')} </div> <div class="grid grid-cols-2 gap-x-4 gap-y-1 items-center"> <div class="flex items-center justify-between"><div><span>DEX<span class="text-gray-400">:</span></span><span class="die-value ${isAttributeAffected(char, 'DEX') ? 'text-red-500' : ''}">${getAttributeWithStatus(char, 'DEX')}</span></div>${renderStatusIcon(char, index, 'slow')}</div> <div class="flex items-center justify-between"><div><span>MIG<span class="text-gray-400">:</span></span><span class="die-value ${isAttributeAffected(char, 'MIG') ? 'text-red-500' : ''}">${getAttributeWithStatus(char, 'MIG')}</span></div>${renderStatusIcon(char, index, 'weak')}</div> <div class="flex items-center justify-between"><div><span>INS<span class="text-gray-400">:</span></span><span class="die-value ${isAttributeAffected(char, 'INS') ? 'text-red-500' : ''}">${getAttributeWithStatus(char, 'INS')}</span></div>${renderStatusIcon(char, index, 'dazed')}</div> <div class="flex items-center justify-between"><div><span>WLP<span class="text-gray-400">:</span></span><span class="die-value ${isAttributeAffected(char, 'WLP') ? 'text-red-500' : ''}">${getAttributeWithStatus(char, 'WLP')}</span></div>${renderStatusIcon(char, index, 'shaken')}</div> <div class="flex items-center justify-center">${renderStatusIcon(char, index, 'enraged')}</div> <div class="flex items-center justify-center">${renderStatusIcon(char, index, 'poisoned')}</div> </div> </div>`; }).join(''); }
+        function renderStatusPanels() {
+            const container = document.getElementById('status-panels');
+            container.innerHTML = AppState.party.map((char, index) => {
+                const isCrisis = char.stats.hp.current <= Math.floor(char.stats.hp.max / 2);
+                return `
+                <div id="status-panel-${index}" class="jrpg-window flex flex-col gap-2 p-2">
+                    <div class="flex justify-between items-start">
+                         <div data-action="open-info-screen" data-char-index="${index}" class="cursor-pointer portrait-container ${isCrisis ? 'crisis' : ''}">
+                             <img src="${char.portrait}" alt="${char.name}" class="w-16 h-16 object-cover border-2 border-white flex-shrink-0" onerror="this.src='https://placehold.co/100x100/1a1a5c/ffffff?text=ERR'">
+                         </div>
+                        <div class="text-right">
+                            <div>DEF: ${char.def}</div>
+                            <div>M.DEF: ${char.mdef}</div>
+                        </div>
+                    </div>
+                    <div class="space-y-1">
+                        ${['hp', 'mp', 'ip'].map(stat => {
+                            const s = char.stats[stat];
+                            const barColor = (stat === 'hp' && isCrisis) ? 'var(--crisis-color)' : `var(--${stat}-color)`;
+                            
+                            if (stat === 'hp') {
+                                const basePercent = s.max > 0 ? (s.current / s.max) * 100 : 0;
+                                const tempPercent = s.current > s.max ? ((s.current - s.max) / s.max) * 100 : 0;
+                                const cappedBasePercent = Math.min(basePercent, 100);
+                                const cappedTempPercent = Math.min(basePercent - 100, 100);
+
+                                return `<div class="flex items-center gap-2">
+                                    <span style="color:${barColor};">HP</span>
+                                    <div class="progress-bar-container flex-grow" data-action="adjust-stat" data-char-index="${index}" data-stat="hp">
+                                        <div class="progress-bar" style="width:${cappedBasePercent}%; background-color: ${barColor}; z-index: 1;"></div>
+                                        ${s.current > s.max ? `<div class="progress-bar" style="width:${cappedTempPercent}%; background-color: var(--hp-temp-color); z-index: 2;"></div>` : ''}
+                                    </div>
+                                    <span class="w-20 text-right">${s.current}/${s.max}</span>
+                                </div>`;
+                            }
+                            
+                            const percent = s.max > 0 ? (s.current / s.max) * 100 : 0;
+                            const cappedPercent = Math.min(percent, 100);
+                            return `<div class="flex items-center gap-2">
+                                <span style="color:${barColor};">${stat.toUpperCase()}</span>
+                                <div class="progress-bar-container flex-grow" data-action="adjust-stat" data-char-index="${index}" data-stat="${stat}">
+                                    <div class="progress-bar" style="width:${cappedPercent}%; background-color: ${barColor};"></div>
+                                </div>
+                                <span class="w-20 text-right">${s.current}/${s.max}</span>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                     <div class="grid grid-cols-2 gap-x-4 gap-y-1 items-center">
+                         <div class="flex items-center justify-between"><div><span>DEX<span class="text-gray-400">:</span></span><span class="die-value ${isAttributeAffected(char, 'DEX') ? 'text-red-500' : ''}">${getAttributeWithStatus(char, 'DEX')}</span></div>${renderStatusIcon(char, index, 'slow')}</div>
+                         <div class="flex items-center justify-between"><div><span>MIG<span class="text-gray-400">:</span></span><span class="die-value ${isAttributeAffected(char, 'MIG') ? 'text-red-500' : ''}">${getAttributeWithStatus(char, 'MIG')}</span></div>${renderStatusIcon(char, index, 'weak')}</div>
+                         <div class="flex items-center justify-between"><div><span>INS<span class="text-gray-400">:</span></span><span class="die-value ${isAttributeAffected(char, 'INS') ? 'text-red-500' : ''}">${getAttributeWithStatus(char, 'INS')}</span></div>${renderStatusIcon(char, index, 'dazed')}</div>
+                         <div class="flex items-center justify-between"><div><span>WLP<span class="text-gray-400">:</span></span><span class="die-value ${isAttributeAffected(char, 'WLP') ? 'text-red-500' : ''}">${getAttributeWithStatus(char, 'WLP')}</span></div>${renderStatusIcon(char, index, 'shaken')}</div>
+                         <div class="flex items-center justify-center">${renderStatusIcon(char, index, 'enraged')}</div>
+                         <div class="flex items-center justify-center">${renderStatusIcon(char, index, 'poisoned')}</div>
+                     </div>
+                </div>`;
+            }).join('');
+        }
         function renderStatusIcon(char, charIndex, statusKey) { if (!statusKey || !STATUS_EFFECTS[statusKey]) return '<div></div>'; const status = STATUS_EFFECTS[statusKey]; const isStroked = ['slow', 'dazed', 'weak', 'shaken'].includes(statusKey); return `<div class="status-icon ${char.status[statusKey] ? 'active' : ''} ml-1" style="${char.status[statusKey] ? `background-color:${status.color};` : ''}" title="${status.name}" data-action="toggle-status" data-char-index="${charIndex}" data-status="${statusKey}"> <svg class="w-full h-full" ${isStroked ? 'fill="none" stroke="currentColor" stroke-width="1.5"' : 'fill="currentColor"'} viewBox="0 0 24 24"> <path ${isStroked ? 'stroke-linecap="round" stroke-linejoin="round"' : ''} d="${status.icon}" /> </svg> </div>`; }
         function isAttributeAffected(char, attr) { return (char.status.slow && attr === 'DEX') || (char.status.dazed && attr === 'INS') || (char.status.weak && attr === 'MIG') || (char.status.shaken && attr === 'WLP') || (char.status.poisoned && (attr === 'MIG' || attr === 'WLP')) || (char.status.enraged && (attr === 'DEX' || attr === 'INS')); }
         function getAttributeWithStatus(char, attr) { let penalty = 0; if (char.status.slow && attr === 'DEX') penalty++; if (char.status.dazed && attr === 'INS') penalty++; if (char.status.weak && attr === 'MIG') penalty++; if (char.status.shaken && attr === 'WLP') penalty++; if (char.status.poisoned && (attr === 'MIG' || attr === 'WLP')) penalty++; if (char.status.enraged && (attr === 'DEX' || attr === 'INS')) penalty++; const i = DICE.indexOf(char.attributes[attr]); return DICE[Math.max(0, i - penalty)]; }
