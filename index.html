@@ -83,6 +83,16 @@
             top: 0;
             z-index: 200;
         }
+        .admin-icon {
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            color: #808080;
+            transition: color 0.2s;
+        }
+        .admin-icon:hover {
+            color: #ffff00;
+        }
     </style>
 </head>
 <body>
@@ -204,8 +214,9 @@
 
             if (inputId === 'Ooble-Loodle Bloodle-Doo') {
                 playSound('confirm');
+                // Open Admin Panel
                 LocalUIState.activeModal = { type: 'admin-panel', data: { isLoading: true, sessions: [] } };
-                renderModal(); // Show loading state
+                transitionToAppView(); // Transition first
                 try {
                     const querySnapshot = await db.collection('parties').get();
                     const sessions = querySnapshot.docs.map(doc => doc.id);
@@ -264,20 +275,10 @@
             unsubscribeFromParty = db.collection('parties').doc(partyId).onSnapshot(doc => {
                 if (doc.exists) {
                     const cloudState = doc.data();
-                    const hadModal = !!LocalUIState.activeModal;
-                    
                     AppState.party = cloudState.party || [];
                     AppState.settings = cloudState.settings || { backgroundUrl: '' };
                     migrateDataStructure();
-
-                    if (hadModal && LocalUIState.activeModal.type.startsWith('edit')) {
-                        if (LocalUIState.activeModal.type === 'edit-character') {
-                            LocalUIState.activeModal.data.character = AppState.party[LocalUIState.activeModal.data.charIndex];
-                        }
-                        renderModal();
-                    } else if (!hadModal) {
-                        renderAll();
-                    }
+                    renderAll(); // Always render all to ensure consistency
                 } else {
                     alert("This party session has been deleted remotely.");
                     handleLeaveSession(true);
@@ -506,11 +507,15 @@
                 content = `
                     <div class="space-y-2 max-h-96 overflow-y-auto scrollable-menu pr-2">
                         ${sessions.map(id => `
-                            <div class="flex items-center justify-between p-2 bg-black/30">
-                                <span class="truncate">${id}</span>
-                                <div class="flex gap-2 flex-shrink-0">
-                                    <button class="jrpg-window !p-1 action-button" data-action="admin-join-session" data-party-id="${id}">Join</button>
-                                    <button class="jrpg-window !p-1 action-button bg-red-800" data-action="admin-delete-session-prompt" data-party-id="${id}">Delete</button>
+                            <div class="flex items-center justify-between p-2 bg-black/30 rounded">
+                                <span class="truncate cursor-pointer" data-action="admin-copy-id" data-party-id="${id}" title="Click to copy">${id}</span>
+                                <div class="flex gap-2 flex-shrink-0 ml-4">
+                                    <button class="jrpg-window !p-1 action-button bg-green-800" data-action="admin-join-session" data-party-id="${id}" title="Join Session">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clip-rule="evenodd" /></svg>
+                                    </button>
+                                    <button class="jrpg-window !p-1 action-button bg-red-800" data-action="admin-delete-session-prompt" data-party-id="${id}" title="Delete Session">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>
+                                    </button>
                                 </div>
                             </div>
                         `).join('')}
@@ -520,7 +525,7 @@
                 <h2 class="text-yellow-300 text-lg mb-4">Admin Panel - Session Management</h2>
                 ${content}
                 <div class="mt-6 flex justify-center">
-                    <button class="jrpg-window !p-2 action-button" data-action="close-modal">Close</button>
+                    <button class="jrpg-window !p-2 action-button" data-action="leave-session-prompt">Exit to Main Menu</button>
                 </div>`;
         }
 
