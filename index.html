@@ -8,7 +8,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://css.gg/css?css=check" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
     
     <!-- Firebase SDKs -->
@@ -98,7 +97,7 @@
                 <div class="flex items-center gap-2">
                     <hr class="flex-grow border-gray-500"><span class="text-gray-400">OR</span><hr class="flex-grow border-gray-500">
                 </div>
-                <input type="text" id="party-id-input" placeholder="Enter Party ID or Admin Password" class="text-center">
+                <input type="text" id="party-id-input" placeholder="Enter Party ID" class="text-center">
                 <button id="join-party-btn" class="jrpg-window !p-2 action-button w-full">Join Online Party</button>
                  <div class="flex items-center gap-2">
                     <hr class="flex-grow border-gray-500"><span class="text-gray-400">OR</span><hr class="flex-grow border-gray-500">
@@ -1041,7 +1040,7 @@
                 'open-info-screen': () => { playSound('navigate'); LocalUIState.activeModal = { type: 'info-screen', data: { charIndex: cIndex } }; renderModal(); },
                 'adjust-stat': () => { playSound('navigate'); const panel = document.getElementById(`status-panel-${cIndex}`); const rect = panel.getBoundingClientRect(); LocalUIState.activeModal = {type:'adjust-stat', data:{charIndex:cIndex, stat:data.stat}, position: {x: rect.left + rect.width / 2, y: rect.top + rect.height / 2}}; renderModal(); },
                 'open-system-menu': () => { playSound('navigate'); LocalUIState.activeModal = { type: 'system-menu', data: {} }; renderModal(); },
-                'close-modal': () => { playSound('cancel'); LocalUIState.activeModal = null; renderAll(); },
+                'close-modal': () => { playSound('cancel'); LocalUIState.activeModal = null; if (!document.getElementById('app-container').classList.contains('hidden')) renderAll(); },
                 'close-skill-editor': () => {
                     playSound('cancel');
                     const { charIndex } = LocalUIState.activeModal.data;
