@@ -292,7 +292,7 @@
                             LocalUIState.activeModal.data.character = AppState.party[LocalUIState.activeModal.data.charIndex];
                         }
                         renderModal(); // Just re-render the modal
-                    } else {
+                    } else if (!hadModal) {
                         // For all other cases (including closing a modal, or no modal), do a full re-render.
                         renderAll();
                     }
@@ -887,7 +887,15 @@
                     let val = parseInt(document.getElementById('adjust-value').value) || 0;
                     const s = AppState.party[charIndex].stats[stat];
                     let newVal = s.current + (data.op === 'add' ? val : -val);
+
+                    // Prevent going below zero for all stats
                     newVal = Math.max(0, newVal);
+
+                    // ONLY when adding, cap MP and IP at their max. HP can exceed max.
+                    if (data.op === 'add' && (stat === 'mp' || stat === 'ip')) {
+                        newVal = Math.min(newVal, s.max);
+                    }
+                    
                     s.current = newVal;
                     LocalUIState.activeModal = null;
                     saveData();
@@ -1130,9 +1138,11 @@
                         return;
                     }
                     if (item.isHealing) {
-                        if (item.targeting.includes('All')) {
-                            const targets = [];
-                            AppState.party.forEach((_, i) => targets.push(i));
+                        if (item.targeting === 'All Targets') {
+                            const targets = AppState.party.map((_, i) => i);
+                            applyAbilityEffect(user, item, targets);
+                        } else if (item.targeting === 'All Allies') {
+                            const targets = AppState.party.map((_, i) => i).filter(i => i !== cIndex);
                             applyAbilityEffect(user, item, targets);
                         } else if (item.targeting === '1 Target') {
                             LocalUIState.activeModal = {type:'target-selection', data:{item, userCharIndex: cIndex}};
@@ -1440,17 +1450,13 @@
             
             saveData();
             
-            if (!isOfflineMode && !opensCureModal) {
-                renderAll();
-            } else {
-                const shouldRenderAll = isOfflineMode || !targetIndices.some(t => {
-                    const targetChar = AppState.party[t];
-                    return targetChar && targetChar.status && Object.values(targetChar.status).some(s => s);
-                });
-                
-                if (shouldRenderAll && !opensCureModal) {
-                    renderAll();
-                }
+            // Re-render immediately only if in offline mode or if the modal was closed
+            if (isOfflineMode && !opensCureModal) {
+                 renderAll();
+            } else if (!isOfflineMode && !opensCureModal) {
+                // In online mode, the listener will trigger the re-render.
+                // But if the modal was closed, we need to force it.
+                 renderAll();
             }
         }
         function createDefaultCharacter(id) {
