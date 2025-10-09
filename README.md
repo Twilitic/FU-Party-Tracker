@@ -1,123 +1,72 @@
-Made with the assistance of Gemini AI.
+Made in collaboration/with the heavy assistance of Gemini AI.
 
-Fabula Ultima Party Tracker - Feature Guide (v4.4)
-This document outlines the complete feature set of the Fabula Ultima Party Tracker. It can be used as a user guide or as a checklist for regression testing.
+Fabula Ultima Party Tracker - Feature Guide
+This guide provides an overview of the features and functionality of the Fabula Ultima Party Tracker, a web-based application designed to manage your TTRPG party with a classic JRPG aesthetic. The tracker can be used collaboratively online or as a solo offline tool.
 
-1. Core Functionality & Display
-Party Overview: The main screen displays four character status panels and their corresponding command menus, providing an at-a-glance view of the entire party.
+1. Getting Started: Online & Offline Modes
+When you first launch the tracker, you are presented with three options:
 
-Responsive Design: The layout automatically adjusts for optimal viewing on desktop, tablet, and mobile devices.
+Create New Online Party: This option generates a new, shareable Party ID (e.g., azure-golem-75). A new party is created in the database, and you are automatically connected. Share this ID with your friends so they can join your session.
 
-JRPG Aesthetic: The interface is styled to resemble a classic JRPG, using a retro-inspired, readable font ("Share Tech Mono"), pixelated borders, and a classic blue window theme.
+Join Online Party: If you have a Party ID, enter it here to connect to an existing collaborative session. The tracker will remember the last session you joined for quick re-entry later.
 
-Sound Effects: User interactions such as navigating menus, confirming actions, and encountering errors are accompanied by thematic sound effects powered by Tone.js.
+Use Offline Mode: This allows you to use the tracker by yourself without an internet connection. All data is saved directly to your browser. A distinct orange banner will appear at the top of the screen to indicate you are in offline mode.
 
-2. Character Status Panels
-Resource Tracking: Each character has progress bars for HP, MP, and IP, showing current and maximum values.
+2. The Main Interface
+The main screen is divided into two key sections, designed for at-a-glance information and quick actions.
 
-The HP bar visually supports temporary hit points by extending beyond 100%.
+Status Panels
+Each of the four party members has a dedicated status panel displaying their vital information:
 
-MP and IP bars are capped at 100% visually, even if the underlying value is higher.
+Core Stats: HP, MP, and IP are shown with dynamic progress bars. The HP bar will turn red to indicate a character is in "Crisis" (at or below 50% health).
 
-Crisis State: When a character's HP is at or below 50%, their HP bar turns red, and their portrait gains a flashing red animation to indicate danger.
+Attributes & Defense: Displays the character's DEF, M.DEF, and current attribute dice (DEX, INS, MIG, WLP).
 
-Quick Stats: Defense (DEF) and Magic Defense (M.DEF) are displayed for quick reference.
+Status Effects: A row of icons allows you to easily toggle status effects like Slow, Weak, Poisoned, and more. When a status is active, it will automatically adjust the character's effective attribute dice.
 
-Attribute Dice: Displays the current die for each of the four main attributes (DEX, INS, MIG, WLP).
+Interactivity: Clicking a stat bar opens a quick-calculator to add or subtract from its value. Clicking a character's portrait opens an info screen.
 
-Status Effects: Icons for all major status effects (Slow, Dazed, Weak, Shaken, Poisoned, Enraged) are present.
+Command Menus
+Below each status panel is a corresponding command menu, styled after classic JRPG interfaces:
 
-Clicking an icon toggles the status on or off.
+Hierarchical Navigation: Navigate through categories like "Skills," "Magic," and "Items" to find specific abilities.
 
-Active statuses are highlighted with a distinct color.
+Breadcrumbs: The menu header shows your current path and allows you to quickly jump back to the root of the menu.
 
-Attribute dice automatically downgrade and turn red when affected by a relevant status.
+Long Names: Skill names that are too long to fit will automatically scroll when you hover over them.
 
-Quick Stat Adjustment: Clicking on any of the HP, MP, or IP bars opens a small, centered pop-up allowing you to quickly add or subtract a value from the current total.
+3. Character & Party Management
+The tracker provides powerful tools for customizing your party and managing your data.
 
-3. Command & Skill System
-Navigable Menus: Each character has a command menu that can be navigated to access nested categories of skills and items.
+Edit Mode & The Character Editor
+Clicking the "Edit" button on the main screen activates Edit Mode. This adds an "..Edit Char" option to the root of each command menu.
 
-Breadcrumb Navigation: The header of each command menu shows the current navigation path (e.g., Hero 1 > Magic).
+The Character Editor is a full-screen menu where you can:
 
-Scrolling Skill Names: Skills with names too long to fit in the menu will automatically scroll horizontally on hover for full readability.
+Change a character's name, stats (current and max), DEF, M.DEF, and attribute dice.
 
-Color-Coded Costs: Skill and item costs are color-coded in the command menu for quick identification:
+Upload a custom character portrait from your device.
 
-HP: Red
+Customize the display colors for the character's name, skill categories, and skill names.
 
-MP: Blue
+Import/Export individual character data to a .json file.
 
-IP: Orange
+The Command Editor
+Within the Character Editor, you can fully customize a character's list of commands.
 
-Detailed Skill Viewer: Clicking a skill or item opens a modal window displaying all its properties, including:
+Add/Edit Skills: Create new skills and categories or edit existing ones. Define properties such as name, cost (HP, MP, IP), effect description, damage, healing, targeting, and more.
 
-Cost, Target, Duration, Check, Damage, and Type.
+Drag & Drop: Easily reorganize skills and move them between categories by dragging and dropping them within the editor.
 
-Fields for "Check" and "Type" are hidden if they are set to "None."
+System Menu
+The "System" button opens a global menu with party-wide tools:
 
-The four preset items ("Remedy", "Elixir", "Tonic", "Magic Tent") have a simplified view that hides irrelevant fields.
+Session Info: Displays the current Party ID and allows you to copy it to your clipboard.
 
-4. Edit Mode & Customization
-Global Edit Mode: A main "Edit" button toggles the application into an editing state.
+Party Data: Import or export the entire party's data as a single .json file, perfect for backups or moving an offline game online.
 
-Comprehensive Character Editor: In Edit Mode, a button appears on each character's command menu to open a full-screen character editor with two main panels.
+Global Actions: Use party-wide abilities like "Magic Tent" (full rest for everyone) or "Restore All IP."
 
-Left Panel (Character Stats):
+UI Settings: Adjust the application's font size, set a custom background URL, and control the sound effect volume or mute it entirely.
 
-Upload custom character portraits (images are resized and optimized).
-
-Edit character name.
-
-Edit all current/max stats (HP, MP, IP, DEF, M.DEF).
-
-Set attribute dice (d6-d12).
-
-Customize UI colors for the character's Name, Categories, and Skills.
-
-Import/Export individual character data as a .json file.
-
-Right Panel (Command Editor):
-
-Drag-and-Drop Reorganization: All skills and categories (except protected ones) can be dragged and dropped to reorder them or move them between categories. A yellow line/highlight indicates the drop location.
-
-Collapsible Categories: Categories can be collapsed [+] or expanded [-] to easily manage long command lists. The collapsed state is saved.
-
-Add/Edit/Delete: Create new skills, subcategories, or top-level categories. Edit any existing item.
-
-Deletion Confirmation: A confirmation prompt appears before deleting any skill or category, warning the user if a category contains other items.
-
-Protected Items: The core "Items" category and the four preset items ("Remedy," "Elixir," "Tonic," "Magic Tent") are locked.
-
-They are displayed in gray to indicate they are locked.
-
-They cannot be dragged, moved, or deleted.
-
-Specialized Preset Item Editor: Editing a preset item opens a simplified modal that only allows changes to its Cost, Healing values, and Effect description.
-
-Full Skill Editor: For all other skills, a wide, two-column editor modal appears, allowing for full customization of all properties (healing, cost, targeting, check, damage, etc.).
-
-5. System & Data Management
-System Menu: Accessible via a "System" button, this menu provides global settings and actions.
-
-Custom Background: Set a custom background image for the entire application by providing a URL.
-
-Party-Wide Actions:
-
-Magic Tent: Fully restores HP/MP and cures all statuses for the entire party.
-
-Restore All IP: Instantly refills all characters' IP to their maximum.
-
-Audio Controls: Adjust the application volume with a slider and mute/unmute all sounds.
-
-Font Size Adjustment: Change the global font size between four presets (S, M, L, XL) for better readability.
-
-Data Portability:
-
-Export Data: Save the entire party's data to a single .json file.
-
-Import Data: Load a previously exported party data file, overwriting the current state.
-
-Reset Data: A button (with confirmation) is available to completely wipe all saved data from the browser and reset the application to its default state.
-
-Firebase: Now has the ability to be used online for real time changes with friends~ :D
+Leave Session: Disconnect from the current session and return to the main startup screen.
