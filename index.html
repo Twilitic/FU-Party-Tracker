@@ -91,14 +91,14 @@
     <!-- Session Management UI (Shown on Load) -->
     <div id="session-container" class="min-h-screen w-screen p-4 flex justify-center items-center">
         <div class="jrpg-window w-full max-w-md text-center">
-            <h1 data-action="open-admin-prompt" class="text-2xl text-yellow-300 mb-4 cursor-pointer" title="Admin Access">Fabula Ultima Party Tracker</h1>
+            <h1 class="text-2xl text-yellow-300 mb-4">Fabula Ultima Party Tracker</h1>
             <p class="mb-6">Join a collaborative online session or use in offline mode.</p>
             <div class="space-y-4">
                 <button id="create-party-btn" class="jrpg-window !p-2 action-button w-full">Create New Online Party</button>
                 <div class="flex items-center gap-2">
                     <hr class="flex-grow border-gray-500"><span class="text-gray-400">OR</span><hr class="flex-grow border-gray-500">
                 </div>
-                <input type="text" id="party-id-input" placeholder="Enter Party ID (e.g. blue-mage-42)" class="text-center">
+                <input type="text" id="party-id-input" placeholder="Enter Party ID or Admin Password" class="text-center">
                 <button id="join-party-btn" class="jrpg-window !p-2 action-button w-full">Join Online Party</button>
                  <div class="flex items-center gap-2">
                     <hr class="flex-grow border-gray-500"><span class="text-gray-400">OR</span><hr class="flex-grow border-gray-500">
@@ -196,10 +196,28 @@
             await db.collection('parties').doc(partyId).set(AppState);
             joinParty(partyId);
         }
-        function handleJoinParty() {
-            const inputId = document.getElementById('party-id-input').value.trim().toLowerCase();
-            if (inputId) { joinParty(inputId); } 
-            else { document.getElementById('session-error').textContent = "Please enter a Party ID."; }
+        async function handleJoinParty() {
+            const inputId = document.getElementById('party-id-input').value.trim();
+            if (!inputId) {
+                document.getElementById('session-error').textContent = "Please enter a Party ID.";
+                return;
+            }
+
+            if (inputId === 'Ooble-Loodle Bloodle-Doo') {
+                playSound('confirm');
+                LocalUIState.activeModal = { type: 'admin-panel', data: { isLoading: true, sessions: [] } };
+                renderModal(); // Show loading state
+                try {
+                    const querySnapshot = await db.collection('parties').get();
+                    const sessions = querySnapshot.docs.map(doc => doc.id);
+                    LocalUIState.activeModal.data = { isLoading: false, sessions };
+                } catch(error) {
+                    LocalUIState.activeModal.data = { isLoading: false, sessions: [], error: error.message };
+                }
+                renderModal(); // Re-render with sessions or error
+            } else {
+                joinParty(inputId.toLowerCase());
+            }
         }
         async function joinParty(id, isAutoRejoin = false) {
             document.getElementById('session-error').textContent = "Connecting...";
@@ -253,12 +271,12 @@
                     AppState.settings = cloudState.settings || { backgroundUrl: '' };
                     migrateDataStructure();
 
-                    if (hadModal) {
+                    if (hadModal && LocalUIState.activeModal.type.startsWith('edit')) {
                         if (LocalUIState.activeModal.type === 'edit-character') {
                             LocalUIState.activeModal.data.character = AppState.party[LocalUIState.activeModal.data.charIndex];
                         }
                         renderModal();
-                    } else {
+                    } else if (!hadModal) {
                         renderAll();
                     }
                 } else {
@@ -473,19 +491,8 @@
                     <button class="jrpg-window !p-2 action-button" data-action="close-modal">Close</button>
                 </div>`;
         }
-
-        function getAdminPromptContent() {
-            return `
-                <h2 class="text-yellow-300 text-lg mb-4">Admin Access</h2>
-                <p class="mb-4">Please enter the administrator password.</p>
-                <input type="password" id="admin-password-input" class="text-center">
-                <p id="admin-error" class="text-red-500 h-4 mt-2"></p>
-                <div class="mt-4 flex justify-around">
-                    <button class="jrpg-window !p-2 action-button" data-action="submit-admin-password">Submit</button>
-                    <button class="jrpg-window !p-2 action-button" data-action="close-modal">Cancel</button>
-                </div>
-            `;
-        }
+        
+        function getAdminPromptContent() { return ` <h2 class="text-yellow-300 text-lg mb-4">Admin Access</h2> <p class="mb-4">Please enter the administrator password.</p> <input type="password" id="admin-password-input" class="text-center"> <p id="admin-error" class="text-red-500 h-4 mt-2"></p> <div class="mt-4 flex justify-around"> <button class="jrpg-window !p-2 action-button" data-action="submit-admin-password">Submit</button> <button class="jrpg-window !p-2 action-button" data-action="close-modal">Cancel</button> </div> `; }
 
         function getAdminPanelContent(data) {
             const { sessions, isLoading, error } = data;
@@ -1196,31 +1203,6 @@
                     };
                     renderModal();
                 },
-                'open-admin-prompt': () => {
-                    LocalUIState.activeModal = { type: 'admin-prompt', data: {} };
-                    renderModal();
-                },
-                'submit-admin-password': async () => {
-                    const input = document.getElementById('admin-password-input');
-                    const pass = input.value;
-                    if (pass === 'Ooble-Loodle Bloodle-Doo') {
-                        playSound('confirm');
-                        LocalUIState.activeModal = { type: 'admin-panel', data: { isLoading: true, sessions: [] } };
-                        renderModal();
-                        try {
-                            const querySnapshot = await db.collection('parties').get();
-                            const sessions = querySnapshot.docs.map(doc => doc.id);
-                            LocalUIState.activeModal.data = { isLoading: false, sessions };
-                        } catch(error) {
-                            LocalUIState.activeModal.data = { isLoading: false, sessions: [], error: error.message };
-                        }
-                        renderModal();
-                    } else {
-                        playSound('error');
-                        document.getElementById('admin-error').textContent = "Incorrect Password.";
-                        input.value = '';
-                    }
-                },
                 'admin-join-session': () => { joinParty(data.partyId); },
                 'admin-delete-session-prompt': () => {
                     LocalUIState.activeModal = {
@@ -1239,7 +1221,7 @@
                 'confirm-admin-delete': async () => {
                     try {
                         await db.collection('parties').doc(data.partyId).delete();
-                        localActions['submit-admin-password'](); // Re-submit with correct pass to refresh list
+                        handleJoinParty(); // Re-trigger admin panel logic
                     } catch (error) {
                         LocalUIState.activeModal.data.error = error.message;
                         renderModal();
