@@ -190,10 +190,7 @@
             const newPartyId = generatePartyId();
             partyId = newPartyId;
             isOfflineMode = false;
-            const defaultState = { 
-                party: Array.from({ length: 4 }, (_, i) => createDefaultCharacter(i)), 
-                settings: { backgroundUrl: '' }
-            };
+            const defaultState = { party: Array.from({ length: 4 }, (_, i) => createDefaultCharacter(i)), settings: { backgroundUrl: '' } };
             Object.assign(AppState, defaultState);
              const dataToSave = {
                 ...defaultState,
@@ -289,12 +286,14 @@
                     AppState.settings = cloudState.settings || { backgroundUrl: '' };
                     migrateDataStructure();
 
+                    // If an edit modal was open, refresh its data before re-rendering everything else
                     if (hadModal && LocalUIState.activeModal.type.startsWith('edit')) {
                         if (LocalUIState.activeModal.type === 'edit-character') {
                             LocalUIState.activeModal.data.character = AppState.party[LocalUIState.activeModal.data.charIndex];
                         }
-                        renderModal();
-                    } else if (!hadModal) {
+                        renderModal(); // Just re-render the modal
+                    } else {
+                        // For all other cases (including closing a modal, or no modal), do a full re-render.
                         renderAll();
                     }
                 } else {
@@ -1060,11 +1059,11 @@
             const localActions = {
                 'open-menu': () => { playSound('confirm'); LocalUIState.activeMenus[cIndex].path.push(parseInt(data.itemIndex)); renderCommandMenus(); },
                 'go-back': () => { playSound('cancel'); LocalUIState.activeMenus[cIndex].path.pop(); renderCommandMenus(); },
-                'go-to-path': () => { playSound('navigate'); LocalUIState.activeMenus[cIndex].path = data.path ? data.path.split(',').map(Number) : []; renderCommandMenus(); },
+                'go-to-path': () => { playSound(data.path ? 'navigate' : 'cancel'); LocalUIState.activeMenus[cIndex].path = data.path ? data.path.split(',').map(Number) : []; renderCommandMenus(); },
                 'view-detail': () => { playSound('select'); const currentItems = getItemsFromPath(AppState.party[cIndex], LocalUIState.activeMenus[cIndex].path); LocalUIState.activeModal = {type:'item-detail', data:{item: currentItems.find(i=>i.name===data.itemName), charIndex: cIndex}}; renderModal(); },
                 'set-font-size': () => { playSound('navigate'); LocalUIState.settings.fontSize = data.size; if (isOfflineMode) { saveData(); } renderAll(); },
                 'open-info-screen': () => { playSound('info'); LocalUIState.activeModal = { type: 'info-screen', data: { charIndex: cIndex } }; renderModal(); },
-                'adjust-stat': () => { playSound('navigate'); const panel = document.getElementById(`status-panel-${cIndex}`); const rect = panel.getBoundingClientRect(); LocalUIState.activeModal = {type:'adjust-stat', data:{charIndex:cIndex, stat:data.stat}, position: {x: rect.left + rect.width / 2, y: rect.top + rect.height / 2}}; renderModal(); },
+                'adjust-stat': () => { playSound('select'); const panel = document.getElementById(`status-panel-${cIndex}`); const rect = panel.getBoundingClientRect(); LocalUIState.activeModal = {type:'adjust-stat', data:{charIndex:cIndex, stat:data.stat}, position: {x: rect.left + rect.width / 2, y: rect.top + rect.height / 2}}; renderModal(); },
                 'open-system-menu': () => { playSound('navigate'); LocalUIState.activeModal = { type: 'system-menu', data: {} }; renderModal(); },
                 'close-modal': () => {
                     playSound('cancel');
@@ -1440,14 +1439,18 @@
             }
             
             saveData();
-
-            const shouldRenderAll = isOfflineMode || !targetIndices.some(t => {
-                const targetChar = AppState.party[t];
-                return targetChar && targetChar.status && Object.values(targetChar.status).some(s => s);
-            });
             
-            if (shouldRenderAll && !opensCureModal) {
+            if (!isOfflineMode && !opensCureModal) {
                 renderAll();
+            } else {
+                const shouldRenderAll = isOfflineMode || !targetIndices.some(t => {
+                    const targetChar = AppState.party[t];
+                    return targetChar && targetChar.status && Object.values(targetChar.status).some(s => s);
+                });
+                
+                if (shouldRenderAll && !opensCureModal) {
+                    renderAll();
+                }
             }
         }
         function createDefaultCharacter(id) {
