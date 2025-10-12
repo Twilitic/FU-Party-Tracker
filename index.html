@@ -14,7 +14,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-firestore-compat.js"></script>
     
-    <!-- Fabula Ultima Skill Library -->
+    <!-- Fabula Ultima Skill Library (MUST be present) -->
     <script src="skill_library.js"></script>
 
     <style>
@@ -437,6 +437,7 @@
 
         function renderAll() {
             if (!AppState.party || AppState.party.length === 0) return;
+            computeAllCharacterStats(); // Recompute stats every full render
             document.body.className = '';
             document.body.classList.add(FONT_SIZES[LocalUIState.settings.fontSize] || FONT_SIZES['md']);
             document.body.style.backgroundImage = AppState.settings.backgroundUrl ? `url('${AppState.settings.backgroundUrl}')` : '';
@@ -531,7 +532,7 @@
             else if (type === 'target-selection-multi') content = getTargetSelectionMultiModalContent(data);
             else if (type === 'adjust-stat') content = getAdjustStatModalContent(data);
             else if (type === 'cure-status') content = getCureStatusModalContent(data);
-            else if (type === 'spell-library') { content = getSpellLibraryModalContent(data); modalClass = 'jrpg-window w-11/12 max-w-2xl'; } // Fixed class
+            else if (type === 'spell-library') { content = getSpellLibraryModalContent(data); modalClass = 'jrpg-window w-11/12 max-w-2xl'; } 
             else if (type === 'edit-character') { content = getEditCharacterModalContent(data); modalClass = 'jrpg-window modal-content-full'; } 
             else if (type === 'delete-confirm') { content = getDeleteConfirmModalContent(data); }
             else if (type === 'edit-skill') { content = getEditSkillModalContent(data); modalClass = 'jrpg-window w-11/12 max-w-4xl'; } 
@@ -1241,10 +1242,15 @@
                     if (skillData) {
                         const { item: parentCategory } = _getItemAndParentByPath(char.commands, parentPath);
                         let parentList = parentCategory ? parentCategory.items : char.commands;
-                        if (!parentList) parentCategory.items = [], parentList = parentCategory.items;
+                        if (!parentList) {
+                            if (parentCategory) {
+                                parentCategory.items = [];
+                                parentList = parentCategory.items;
+                            }
+                        }
                         
                         const newItem = JSON.parse(JSON.stringify(skillData));
-                        if(skillData.type === 'passive') { // Passive skills shouldn't be "usable"
+                        if(skillData.type === 'passive') { 
                              newItem.costType = 'None';
                              newItem.targeting = 'Self';
                         }
