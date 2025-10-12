@@ -14,6 +14,9 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-firestore-compat.js"></script>
     
+    <!-- Fabula Ultima Skill Library -->
+    <script src="skill_library.js"></script>
+
     <style>
         :root {
             --background-blue: #000080;
@@ -48,7 +51,7 @@
         @media (min-width: 768px) { .jrpg-window { padding: 0.75rem; } }
 
         .progress-bar-container { background-color: #000; border: 2px solid var(--border-dark); height: 20px; width: 100%; cursor: pointer; position: relative; }
-        .progress-bar { height: 100%; transition: width 0.3s ease-in-out, background-color 0.3s ease-in-out; position: absolute; left: 0; top: 0; }
+        .progress-bar { height: 100%; transition: width 0.3s ease-in-out, background-color: 0.3s ease-in-out; position: absolute; left: 0; top: 0; }
         .menu-item, .action-button { -webkit-user-select: none; -ms-user-select: none; user-select: none; position: relative; }
         .menu-item:hover, .action-button:hover { background-color: #3a3a8c; cursor: pointer; }
         .truncate-on-hover { flex-grow: 1; min-width: 0; overflow: hidden; white-space: nowrap; position: relative; }
@@ -63,6 +66,7 @@
         .modal-content::-webkit-scrollbar-thumb, .scrollable-menu::-webkit-scrollbar-thumb { background-color: var(--border-dark); border: 2px solid var(--border-light); }
         input, select, textarea { background-color: #000; border: 2px solid var(--border-light); color: white; padding: 0.25rem; font-family: 'Share Tech Mono', monospace; width: 100%; }
         input[type="color"] { padding: 0; border: none; height: 30px; width: 50px; }
+        input[type="checkbox"] { width: auto; }
         .portrait-container { position: relative; }
         .portrait-container.crisis::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255, 0, 0, 0.3); pointer-events: none; animation: crisis-flash 1.5s infinite; }
         @keyframes crisis-flash { 0%, 100% { box-shadow: 0 0 8px 4px rgba(255,0,0,0.5); } 50% { box-shadow: 0 0 4px 2px rgba(255,0,0,0.2); } }
@@ -83,6 +87,7 @@
             top: 0;
             z-index: 200;
         }
+        .modal-header-draggable { cursor: move; }
     </style>
 </head>
 <body>
@@ -141,8 +146,15 @@
 
         // --- STATE MANAGEMENT ---
         const AppState = { party: [], settings: { backgroundUrl: '' } };
-        const LocalUIState = { activeMenus: [ {path:[]}, {path:[]}, {path:[]}, {path:[]} ], isEditMode: false, activeModal: null, settings: { volume: 0.5, muted: false, fontSize: 'md' } };
+        const LocalUIState = { 
+            activeMenus: [ {path:[]}, {path:[]}, {path:[]}, {path:[]} ], 
+            isEditMode: false, 
+            activeModal: null, 
+            settings: { volume: 0.5, muted: false, fontSize: 'md' },
+            spellLibrary: []
+        };
         
+        // --- CONSTANTS & DEFINITIONS ---
         const FONT_SIZES = { sm: 'text-base', md: 'text-lg', lg: 'text-xl', xl: 'text-2xl' };
         const PRESET_ITEMS = ["Remedy", "Elixir", "Tonic", "Magic Tent"];
         const STATUS_EFFECTS = {
@@ -153,12 +165,35 @@
             poisoned: { name: 'Poisoned', color: '#a855f7', icon: 'M12,2C6.477,2,2,6.477,2,12s4.477,10,10,10s10-4.477,10-10S17.523,2,12,2z M9.5,8C10.328,8,11,8.672,11,9.5S10.328,11,9.5,11 S8,10.328,8,9.5S8.672,8,9.5,8z M14.5,8c0.828,0,1.5,0.672,1.5,1.5S15.328,11,14.5,11S13,10.328,13,9.5S13.672,8,14.5,8z M12,18 c-2.209,0-4-1.791-4-4h8C16,16.209,14.209,18,12,18z' },
             enraged: { name: 'Enraged', color: '#ef4444', icon: 'M12.94,2.62C11.6,2.22,10.15,2,8.5,2C5.46,2,3,4.46,3,7.5c0,1.99,1.04,3.73,2.62,4.78C5.22,13.4,5,14.69,5,16v1 c0,1.1,0.9,2,2,2h7c1.1,0,2-0.9,2-2v-1c0-1.31-0.22-2.6-0.62-3.72C17.96,11.23,19,9.49,19,7.5C19,5.85,18.78,4.4,18.38,3.06 C16.92,4.98,14.77,6,12.5,6c-1.55,0-3.04-0.48-4.38-1.38C8.96,3.7,9.81,3,10.77,2.44C11.53,2.83,12.25,3.09,12.94,2.62z' }
         };
-        const ATTRIBUTES = ['DEX', 'INS', 'MIG', 'WLP'];
-        const CHECK_ATTRIBUTES = ['None', ...ATTRIBUTES];
+        const ATTRIBUTES = ['DEX', 'MIG', 'INS', 'WLP'];
         const DICE = ['d6', 'd8', 'd10', 'd12'];
         const COST_TYPES = ['None', 'HP', 'MP', 'IP', '1/3 Current HP'];
-        const DAMAGE_TYPES = ['None', 'Physical', 'Air', 'Bolt', 'Dark', 'Earth', 'Fire', 'Ice', 'Light', 'Poison', 'No Affinity'];
-        const TARGETING_TYPES = ['1 Target', '2 Targets', '3 Targets', 'All Targets', 'All Allies'];
+        const DAMAGE_TYPE_DATA = {
+            'Physical': { color: '#d1d5db', svg: '<path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />' },
+            'Air': { color: '#a7f3d0', svg: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 19.5v-15m0 0l-6.75 6.75M12 4.5l6.75 6.75" />' },
+            'Bolt': { color: '#fef08a', svg: '<path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />' },
+            'Dark': { color: '#c4b5fd', svg: '<path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />' },
+            'Earth': { color: '#fca5a5', svg: '<path stroke-linecap="round" stroke-linejoin="round" d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672ZM12 2.25V4.5m5.832.168-1.182 1.95M21.75 12h-2.25M17.832 17.332l-1.182-1.95M5.832 17.332 7.014 15.38M3 12H5.25m1.832-5.332L7.014 8.62m12 .528L16.986 9.38" />' },
+            'Fire': { color: '#fdba74', svg: '<path stroke-linecap="round" stroke-linejoin="round" d="M15.362 5.214A8.252 8.252 0 0 1 12 21 8.25 8.25 0 0 1 6.038 7.047 8.287 8.287 0 0 0 9 9.608a8.981 8.981 0 0 1 3.362-3.797A8.33 8.33 0 0 1 15.362 5.214Z" />' },
+            'Ice': { color: '#a5f3fc', svg: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />' },
+            'Light': { color: '#fde047', svg: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />' },
+            'Poison': { color: '#f0abfc', svg: '<path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />' },
+            'No Affinity': { color: '#ffffff', svg: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />' },
+        };
+        const TARGETING_TYPES = ['1 Target', '2 Targets', '3 Targets', 'All Targets', 'All Allies', 'Self'];
+        const EFFECT_TYPES = {
+            healing: { name: 'Healing', props: { stat: ['HP', 'MP', 'IP'], value: 'text' } },
+            damage: { name: 'Damage', props: { value: 'text', damageType: Object.keys(DAMAGE_TYPE_DATA), calculation: ['auto', 'manual'] } },
+            inflictStatus: { name: 'Inflict Status', props: { status: Object.keys(STATUS_EFFECTS) } },
+            cureStatus: { name: 'Cure Status', props: { status: ['any', ...Object.keys(STATUS_EFFECTS)] } },
+            dispel: { name: 'Dispel', props: { targetEffects: ['all'] } },
+            attributeModification: { name: 'Attribute Mod', props: { attribute: ['DEX', 'MIG', 'INS', 'WLP'], modification: ['increase', 'decrease'], amount: 'number', duration: ['Instantaneous', 'Scene', 'Next Turn'] } },
+            affinityModification: { name: 'Affinity Mod', props: { affinity: ['Resistance', 'Vulnerability', 'Immunity', 'Absorption'], damageType: Object.keys(DAMAGE_TYPE_DATA), duration: ['Instantaneous', 'Scene', 'Next Turn'] } },
+            resourceLoss: { name: 'Resource Loss', props: { stat: ['MP', 'IP'], value: 'text' } },
+            actionDenial: { name: 'Action Denial', props: { action: ['Guard', 'Spell', 'Skill', 'Attack', 'Objective'], duration: ['Instantaneous', 'Scene', 'Next Turn'] } },
+            misc: { name: 'Misc Effect', props: { description: 'text', duration: ['Instantaneous', 'Scene', 'Next Turn'] } }
+        };
+
         let sounds = null, soundInitialized = false, volumeNode;
 
         function init() {
@@ -168,6 +203,7 @@
             document.getElementById('offline-mode-btn').addEventListener('click', handleOfflineMode);
             setupMarqueeListeners();
             document.body.addEventListener('click', handleGlobalClick);
+            loadSpellLibrary();
             const lastPartyId = localStorage.getItem('fabulaUltimaLastPartyId');
             if (lastPartyId) {
                 document.getElementById('party-id-input').value = lastPartyId;
@@ -276,6 +312,18 @@
                 db.collection('parties').doc(partyId).set(cleanState, { merge: true }).catch(e => console.error("Failed to save data to Firestore:", e));
             }, 300);
         }
+
+        function loadSpellLibrary() {
+            const savedLibrary = localStorage.getItem('fabulaUltimaSpellLibrary');
+            if (savedLibrary) {
+                LocalUIState.spellLibrary = JSON.parse(savedLibrary);
+            }
+        }
+
+        function saveSpellLibrary() {
+            localStorage.setItem('fabulaUltimaSpellLibrary', JSON.stringify(LocalUIState.spellLibrary));
+        }
+
         function listenForPartyChanges() {
             unsubscribeFromParty = db.collection('parties').doc(partyId).onSnapshot(doc => {
                 if (doc.exists) {
@@ -285,15 +333,19 @@
                     AppState.party = cloudState.party || [];
                     AppState.settings = cloudState.settings || { backgroundUrl: '' };
                     migrateDataStructure();
+                    computeAllCharacterStats();
 
-                    // If an edit modal was open, refresh its data before re-rendering everything else
                     if (hadModal && LocalUIState.activeModal.type.startsWith('edit')) {
                         if (LocalUIState.activeModal.type === 'edit-character') {
                             LocalUIState.activeModal.data.character = AppState.party[LocalUIState.activeModal.data.charIndex];
                         }
-                        renderModal(); // Just re-render the modal
+                         if (LocalUIState.activeModal.type === 'edit-skill') {
+                            const { charIndex, itemPath } = LocalUIState.activeModal.data;
+                            const { item } = _getItemAndParentByPath(AppState.party[charIndex].commands, itemPath);
+                            LocalUIState.activeModal.data.item = item;
+                        }
+                        renderModal(); 
                     } else if (!hadModal) {
-                        // For all other cases (including closing a modal, or no modal), do a full re-render.
                         renderAll();
                     }
                 } else {
@@ -316,18 +368,51 @@
                  AppState.party = Array.from({ length: 4 }, (_, i) => createDefaultCharacter(i));
             }
             migrateDataStructure();
+            computeAllCharacterStats();
         }
         function migrateDataStructure() {
             if (!AppState.party) AppState.party = [];
-             AppState.party.forEach(p => {
+            AppState.party.forEach(p => {
                 if(p.def === undefined) p.def = 10;
                 if(p.mdef === undefined) p.mdef = 10;
                 if (!p.customization || p.customization.nameColor === undefined) {
                     if (!p.customization) p.customization = {};
                     p.customization.nameColor = '#ffff00';
                 }
-                const migrate = (items) => { if(!items) return; items.forEach(i => { if(!i.type) i.type = i.items ? 'category' : 'item'; if(i.isHealing === undefined) i.isHealing = false; if(i.type === 'category' && i.isCollapsed === undefined) { i.isCollapsed = false; } if (i.items) migrate(i.items); }); };
-                migrate(p.commands);
+                 if (!p.temporaryEffects) p.temporaryEffects = [];
+
+                const migrateItems = (items) => {
+                    if (!items) return;
+                    items.forEach(i => {
+                        if (!i.type) i.type = i.items ? 'category' : 'item';
+                        if (i.type === 'category' && i.isCollapsed === undefined) {
+                            i.isCollapsed = false;
+                        }
+                        
+                        if (i.type === 'item' && !i.effects) {
+                            i.effects = [];
+                            if (i.isHealing) {
+                                i.effects.push({ type: 'healing', stat: i.healStat || 'HP', value: i.healValue || 0 });
+                            }
+                            if (i.damage) {
+                                i.effects.push({ type: 'damage', value: i.damage, damageType: i.damageType || 'Physical', calculation: 'manual' });
+                            }
+                            if (i.effect && i.effect.toLowerCase().includes('cure one status')) {
+                                i.effects.push({ type: 'cureStatus', status: 'any' });
+                            }
+                            delete i.isHealing; delete i.healStat; delete i.healValue;
+                            delete i.damage; delete i.damageType; delete i.magicCheck;
+                        }
+                        if (i.type === 'item') {
+                            if (i.upTo === undefined) i.upTo = false;
+                            if (i.doesNotStack === undefined) i.doesNotStack = true;
+                        }
+
+
+                        if (i.items) migrateItems(i.items);
+                    });
+                };
+                migrateItems(p.commands);
             });
             while (AppState.party.length < 4) { AppState.party.push(createDefaultCharacter(AppState.party.length)); }
             AppState.party = AppState.party.slice(0, 4);
@@ -431,23 +516,27 @@
             let content = '', modalClass = 'jrpg-window w-11/12 max-w-lg', modalStyle = '';
 
             if (position) {
-                modalClass = 'jrpg-window absolute';
-                modalStyle = `top: ${position.y}px; left: ${position.x}px; transform: translate(-50%, -50%); max-width: 300px; z-index: 50;`;
+                modalClass = `jrpg-window absolute`;
+                 modalStyle = `top: ${position.y}px; left: ${position.x}px; max-width: 300px; z-index: 50;`;
+                 if(type !== 'adjust-stat') modalStyle = `top: ${position.y}px; left: ${position.x}px;`
             }
 
             if (type === 'system-menu') content = getSystemModalContent();
             else if (type === 'admin-panel') { content = getAdminPanelContent(data); modalClass = 'jrpg-window w-11/12 max-w-2xl'; }
-             else if (type === 'admin-prompt') content = getAdminPromptContent();
+            else if (type === 'admin-prompt') content = getAdminPromptContent();
             else if (type === 'confirm') content = getConfirmModalContent(data);
+            else if (type === 'high-roll-prompt') content = getHighRollModalContent(data);
             else if (type === 'target-selection') content = getTargetModalContent();
             else if (type === 'tonic-target-selection') content = getTonicTargetModalContent(data);
             else if (type === 'target-selection-multi') content = getTargetSelectionMultiModalContent(data);
             else if (type === 'adjust-stat') content = getAdjustStatModalContent(data);
             else if (type === 'cure-status') content = getCureStatusModalContent(data);
+            else if (type === 'spell-library') { content = getSpellLibraryModalContent(data); modalClass = 'jrpg-window w-11/12 max-w-2xl'; } // Fixed class
             else if (type === 'edit-character') { content = getEditCharacterModalContent(data); modalClass = 'jrpg-window modal-content-full'; } 
-            else if (type === 'delete-confirm') { content = getDeleteConfirmModalContent(data); } 
+            else if (type === 'delete-confirm') { content = getDeleteConfirmModalContent(data); }
             else if (type === 'edit-skill') { content = getEditSkillModalContent(data); modalClass = 'jrpg-window w-11/12 max-w-4xl'; } 
             else if (type === 'edit-preset-item') { content = getEditPresetItemModalContent(data); } 
+            else if (type === 'skill-library-picker') { content = getSkillLibraryPickerModalContent(data); modalClass = 'jrpg-window w-11/12 max-w-2xl'; }
             else content = getDefaultModalContent(type, data);
 
             container.innerHTML = `<div class="modal-backdrop" data-action="close-modal-backdrop"><div class="${modalClass}" style="${modalStyle}">${content}</div></div>`;
@@ -559,6 +648,16 @@
                 </div>`;
         }
 
+        function getHighRollModalContent() {
+            return `
+                <h2 class="text-yellow-300 text-lg mb-4">Manual Calculation</h2>
+                <p class="mb-4 text-center">Enter the High Roll (HR) value from your dice roll.</p>
+                <input type="number" id="high-roll-input" class="text-center" value="10">
+                <div class="mt-6 flex justify-center">
+                    <button class="jrpg-window !p-2 action-button" data-action="confirm-high-roll">Confirm</button>
+                </div>`;
+        }
+
         function getDeleteConfirmModalContent(data) {
             const { itemName, itemType } = data;
             const isCategory = itemType === 'category';
@@ -607,6 +706,8 @@
                                 <div><label>Skill Color:</label><input type="color" data-path="customization.itemColor" value="${char.customization.itemColor}"></div>
                             </div>
                             <div class="grid grid-cols-2 gap-2 mt-4">
+                                <button class="jrpg-window !p-1 action-button" data-action="open-spell-library" data-char-index="${data.charIndex}">Spell Library</button>
+                                <div></div>
                                 <button class="jrpg-window !p-1 action-button" data-action="import-character" data-char-index="${data.charIndex}">Import Char</button>
                                 <button class="jrpg-window !p-1 action-button" data-action="export-character" data-char-index="${data.charIndex}">Export Char</button>
                                 <input type="file" class="hidden" id="character-import-${data.charIndex}" accept=".json">
@@ -651,9 +752,9 @@
             const { item, selectedTargets = [] } = data;
             const maxTargetsMatch = item.targeting.match(/\d+/);
             const maxTargets = maxTargetsMatch ? parseInt(maxTargetsMatch[0]) : 1;
-            const canConfirm = selectedTargets.length === maxTargets;
+            const canConfirm = item.upTo ? selectedTargets.length > 0 : selectedTargets.length === maxTargets;
             let content = `
-                <h2 class="text-yellow-300 text-lg mb-4">Select ${maxTargets} Target(s)</h2>
+                <h2 class="text-yellow-300 text-lg mb-4">Select ${item.upTo ? 'Up To ' : ''}${maxTargets} Target(s)</h2>
                 <p class="text-center mb-2">${selectedTargets.length} / ${maxTargets} selected</p>
                 <div class="grid grid-cols-2 gap-4">
                     ${AppState.party.map((char, index) => {
@@ -707,117 +808,156 @@
             return `<div class="flex-shrink-0"><span class="text-cyan-300">${label}:</span> <span class="text-white">${value}</span></div>`;
         }
         function getEditPresetItemModalContent(data) {
-            const { item } = data;
-            return `
-                <h2 class="text-yellow-300 text-lg mb-4">Edit ${item.name}</h2>
-                <div class="space-y-4">
-                    <fieldset class="border-2 border-dashed border-gray-600 p-2">
-                        <legend class="px-1">Cost</legend>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div><label>Type:</label><select id="preset-edit-cost-type">${COST_TYPES.map(ct => `<option value="${ct}" ${item.costType === ct ? 'selected':''}>${ct}</option>`).join('')}</select></div>
-                            <div><label>Value:</label><input type="number" id="preset-edit-cost-value" value="${item.costValue || 0}"></div>
-                        </div>
-                    </fieldset>
-                    ${item.isHealing ? `
-                    <fieldset class="border-2 border-dashed border-gray-600 p-2">
-                        <legend class="px-1">Healing</legend>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div><label>Heals:</label><select id="preset-edit-heal-stat">${['HP','MP','IP'].map(s => `<option value="${s}" ${item.healStat === s ? 'selected':''}>${s}</option>`).join('')}</select></div>
-                            <div><label>Amount:</label><input type="number" id="preset-edit-heal-value" value="${item.healValue || 0}"></div>
-                        </div>
-                    </fieldset>
-                    ` : ''}
-                    <div><label>Effect/Description:</label><textarea id="preset-edit-effect" rows="3">${item.effect || ''}</textarea></div>
-                </div>
-                <div class="mt-4 flex justify-end">
-                    <button class="jrpg-window !p-2 action-button" data-action="save-preset-item">Save</button>
-                    <button class="jrpg-window !p-2 action-button ml-2" data-action="close-skill-editor">Cancel</button>
-                </div>`;
+            return getEditSkillModalContent(data);
         }
+
+        // --- NEW ABILITY BUILDER ---
         function getEditSkillModalContent(data) {
-            const defaultSkill = { name: '', costType: 'None', costValue: 0, effect: '', magicCheck:['None','DEX',0], damage:'', damageType:'Physical', duration:'', target:'', isHealing: false, healStat: 'HP', healValue: 0, targeting: '1 Target' };
+            const defaultSkill = { name: '', costType: 'None', costValue: 0, targeting: '1 Target', upTo: false, doesNotStack: true, effect: '', effects: [] };
             const item = { ...defaultSkill, ...(data.item || {}), type: data.newType || data.item?.type || 'item' };
+            const isCategory = item.type === 'category';
+
             let content = `
-                <h2 class="text-yellow-300 text-lg mb-4">${data.isNew ? `Add ${item.type === 'item' ? 'Skill' : 'Category'}` : `Edit ${item.name}`}</h2>
-                <div class="space-y-2">
-                    <div><label>Name:</label><input type="text" id="skill-edit-name" value="${item.name}"></div>
-                    ${ item.type === 'item' ? `
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="space-y-2">
-                           <div class="flex items-center gap-2"><input type="checkbox" id="skill-edit-is-healing" ${item.isHealing ? 'checked' : ''} class="w-auto"><label for="skill-edit-is-healing">Healing Skill</label></div>
-                            <fieldset id="healing-options" class="border-2 border-dashed border-gray-600 p-2 ${!item.isHealing ? 'hidden':''}">
-                                <legend class="px-1">Healing</legend>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div><label>Heals:</label><select id="skill-edit-heal-stat">${['HP','MP','IP'].map(s => `<option value="${s}" ${item.healStat === s ? 'selected':''}>${s}</option>`).join('')}</select></div>
-                                    <div><label>Amount:</label><input type="number" id="skill-edit-heal-value" value="${item.healValue || 0}"></div>
-                                    <div class="col-span-2"><label>Targeting:</label><select id="skill-edit-targeting">${TARGETING_TYPES.map(t => `<option value="${t}" ${item.targeting === t ? 'selected':''}>${t}</option>`).join('')}</select></div>
-                                </div>
-                            </fieldset>
-                             <fieldset class="border-2 border-dashed border-gray-600 p-2">
-                                <legend class="px-1">Cost</legend>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div><label>Type:</label><select id="skill-edit-cost-type">${COST_TYPES.map(ct => `<option value="${ct}" ${item.costType === ct ? 'selected':''}>${ct}</option>`).join('')}</select></div>
-                                    <div><label>Value:</label><input type="number" id="skill-edit-cost-value" value="${item.costValue || 0}"></div>
-                                </div>
-                            </fieldset>
-                        </div>
-                        <div class="space-y-2">
-                             <fieldset class="border-2 border-dashed border-gray-600 p-2">
-                                <legend class="px-1">Action</legend>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div><label>Target:</label><input type="text" id="skill-edit-target" value="${item.target || ''}"></div>
-                                    <div><label>Duration:</label><input type="text" id="skill-edit-duration" value="${item.duration || ''}"></div>
-                                </div>
-                            </fieldset>
-                             <fieldset class="border-2 border-dashed border-gray-600 p-2">
-                                <legend class="px-1">Check & Damage</legend>
-                                <div class="grid grid-cols-1 gap-4">
-                                    <div>
-                                        <label>Magic Check:</label>
-                                        <div class="flex items-center gap-1">
-                                            <select id="skill-edit-check1">${CHECK_ATTRIBUTES.map(a => `<option value="${a}" ${item.magicCheck && item.magicCheck[0]===a?'selected':''}>${a}</option>`).join('')}</select>+
-                                            <select id="skill-edit-check2" ${item.magicCheck && item.magicCheck[0] === 'None' ? 'disabled' : ''}>${ATTRIBUTES.map(a => `<option ${item.magicCheck && item.magicCheck[1]===a?'selected':''}>${a}</option>`).join('')}</select>+
-                                            <input type="number" id="skill-edit-check-bonus" value="${(item.magicCheck && item.magicCheck[2]) || 0}" class="w-16 text-center" ${item.magicCheck && item.magicCheck[0] === 'None' ? 'disabled' : ''}>
+                <div class="flex flex-col h-full">
+                    <h2 class="text-yellow-300 text-lg mb-4 flex-shrink-0">${data.isNew ? `Add ${isCategory ? 'Category' : 'Skill'}` : `Edit ${item.name}`}</h2>
+                    <div class="flex-grow overflow-y-auto pr-2 scrollable-menu">
+                        <div><label>Name:</label><input type="text" id="skill-edit-name" value="${item.name}"></div>
+                        ${ !isCategory ? `
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                            <!-- Left Column: Core Properties -->
+                            <div class="space-y-4">
+                                <fieldset class="border-2 border-dashed border-gray-600 p-2">
+                                    <legend class="px-1">Cost & Targeting</legend>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div><label>Cost Type:</label><select id="skill-edit-cost-type">${COST_TYPES.map(ct => `<option value="${ct}" ${item.costType === ct ? 'selected':''}>${ct}</option>`).join('')}</select></div>
+                                        <div><label>Cost Value:</label><input type="number" id="skill-edit-cost-value" value="${item.costValue || 0}"></div>
+                                        <div class="col-span-2">
+                                            <label>Targeting:</label>
+                                            <div class="flex items-center gap-2">
+                                                <select id="skill-edit-targeting" class="flex-grow">${TARGETING_TYPES.map(t => `<option value="${t}" ${item.targeting === t ? 'selected':''}>${t}</option>`).join('')}</select>
+                                                <label class="flex items-center gap-1 whitespace-nowrap"><input type="checkbox" id="skill-edit-up-to" ${item.upTo ? 'checked' : ''}> Up to</label>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div><label>Damage:</label><input type="text" id="skill-edit-damage" value="${item.damage || ''}"></div>
-                                    <div class="col-span-full"><label>Damage Type:</label><select id="skill-edit-damage-type">${DAMAGE_TYPES.map(d => `<option value="${d}" ${item.damageType === d ? 'selected': ''}>${d}</option>`).join('')}</select></div>
-                                </div>
-                            </fieldset>
+                                </fieldset>
+                                <div><label>Flavor Text / Description:</label><textarea id="skill-edit-effect" rows="4">${item.effect || ''}</textarea></div>
+                                <div class="flex items-center gap-2"><label for="skill-edit-does-not-stack">Effect does not stack:</label><input type="checkbox" id="skill-edit-does-not-stack" ${item.doesNotStack ? 'checked' : ''}></div>
+                            </div>
+                            <!-- Right Column: Effects List -->
+                            <div class="space-y-2">
+                                <fieldset class="border-2 border-dashed border-gray-600 p-2 h-full flex flex-col">
+                                    <legend class="px-1">Mechanics</legend>
+                                    <div id="effects-list" class="space-y-1 flex-grow overflow-y-auto">
+                                        ${(item.effects || []).map((effect, index) => renderEffectEntry(effect, index)).join('')}
+                                    </div>
+                                    <button class="jrpg-window !p-1 action-button mt-2" data-action="add-effect">+ Add Effect</button>
+                                </fieldset>
+                            </div>
                         </div>
+                        ` : '' }
                     </div>
-                    <div><label>Effect/Description:</label><textarea id="skill-edit-effect" rows="2">${item.effect || ''}</textarea></div>` : ''}
-                </div>`;
+                `;
+
             const isDeletable = !data.isNew && !PRESET_ITEMS.includes(item.name) && !(item.name === 'Items');
             let footer = `
-                <div class="mt-4 flex justify-between">
+                <div class="mt-4 flex justify-between flex-shrink-0">
                     ${isDeletable ? `<button class="jrpg-window !p-2 action-button bg-red-800" data-action="delete-item">Delete</button>` : '<div></div>'}
                     <div>
-                        <button class="jrpg-window !p-2 action-button" data-action="save-skill">Save</button>
+                        ${!isCategory ? `<button class="jrpg-window !p-2 action-button" data-action="save-to-library">Save to Library</button>` : ''}
+                        <button class="jrpg-window !p-2 action-button ml-2" data-action="save-skill">Save</button>
                         <button class="jrpg-window !p-2 action-button ml-2" data-action="close-skill-editor">Cancel</button>
                     </div>
-                </div>`;
+                </div></div>`;
+
+            if (data.editingEffect) {
+                content += getEditEffectModalContent(data.editingEffect.effect, data.editingEffect.index);
+            }
+
             return content + footer;
         }
+
+        function renderEffectEntry(effect, index) {
+            let summary = `<span class="font-bold text-cyan-400">${EFFECT_TYPES[effect.type]?.name || 'Unknown'}:</span> `;
+            switch (effect.type) {
+                case 'healing': summary += `Restore ${effect.value} ${effect.stat}`; break;
+                case 'resourceLoss': summary += `Lose ${effect.value} ${effect.stat}`; break;
+                case 'damage': 
+                    const damageData = DAMAGE_TYPE_DATA[effect.damageType] || { color: 'white', svg: ''};
+                    summary += `Deal ${effect.value} 
+                                <span class="inline-flex items-center" style="color: ${damageData.color};">
+                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">${damageData.svg}</svg>
+                                    ${effect.damageType}
+                                </span> 
+                                damage (${effect.calculation})`; 
+                    break;
+                case 'inflictStatus': summary += `Inflict ${effect.status}`; break;
+                case 'cureStatus': summary += `Cure ${effect.status}`; break;
+                case 'dispel': summary += `Dispel temporary effects`; break;
+                case 'attributeModification': summary += `${effect.modification === 'increase' ? 'Increase' : 'Decrease'} ${effect.attribute} by ${effect.amount} die step(s)`; break;
+                case 'misc': summary += `<em>${effect.description}</em>`; break;
+                default: summary += 'Complex Effect';
+            }
+            return `
+                <div class="bg-black/30 p-1 flex justify-between items-center">
+                    <span class="truncate pr-2">${summary}</span>
+                    <div class="flex-shrink-0">
+                        <button class="text-blue-400 text-sm" data-action="edit-effect" data-index="${index}">Edit</button>
+                        <button class="text-red-500 text-sm ml-1" data-action="delete-effect" data-index="${index}">Del</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function getEditEffectModalContent(effect, index) {
+            const isNew = index === -1;
+            const effectType = effect.type;
+            const props = EFFECT_TYPES[effectType].props;
+            
+            return `
+                <div class="modal-backdrop" data-action="cancel-edit-effect-backdrop">
+                    <div class="jrpg-window w-11/12 max-w-md space-y-3">
+                        <h3 class="text-yellow-300 text-lg">${isNew ? 'Add' : 'Edit'} ${EFFECT_TYPES[effectType].name} Effect</h3>
+                        ${Object.entries(props).map(([key, options]) => {
+                            const currentValue = effect[key] || (Array.isArray(options) ? options[0] : (options === 'number' ? 1 : ''));
+                            let inputHtml = '';
+                             const label = key === 'amount' && effectType === 'attributeModification' ? 'Die Steps' : key.replace(/([A-Z])/g, ' $1');
+
+                            if (Array.isArray(options)) {
+                                 if (key === 'damageType') {
+                                    inputHtml = `<select data-prop="${key}">${Object.entries(DAMAGE_TYPE_DATA).map(([type, data]) => `<option value="${type}" style="color:${data.color};" ${type === currentValue ? 'selected' : ''}>${type}</option>`).join('')}</select>`;
+                                } else {
+                                    inputHtml = `<select data-prop="${key}">${options.map(o => `<option value="${o}" ${o === currentValue ? 'selected' : ''}>${o}</option>`).join('')}</select>`;
+                                }
+                            } else if (options === 'number') {
+                                inputHtml = `<input type="number" value="${currentValue}" data-prop="${key}">`;
+                            } else { // text
+                                inputHtml = `<input type="text" value="${currentValue}" data-prop="${key}">`;
+                            }
+                            return `<div><label class="capitalize">${label}:</label>${inputHtml}</div>`;
+                        }).join('')}
+                        <div class="flex justify-end gap-2 mt-4">
+                            <button class="jrpg-window !p-2 action-button" data-action="save-effect" data-index="${index}">Save Effect</button>
+                            <button class="jrpg-window !p-2 action-button" data-action="cancel-edit-effect">Cancel</button>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+
         function getDefaultModalContent(type, data) {
             let mainContent = '';
             let footer = '';
 
             if (type === 'item-detail') {
                 const i = data.item;
-                const isPreset = PRESET_ITEMS.includes(i.name);
                 mainContent = `
                     <h2 style="color:var(--text-yellow);" class="text-2xl mb-4 text-center">${i.name} (${AppState.party[data.charIndex].name})</h2>
                     <div class="space-y-3">
                         <div class="flex flex-wrap gap-x-6 gap-y-2 justify-center">
                             ${getDetailField('Cost', formatCost(i))}
-                            ${!isPreset ? getDetailField('Target', i.target) : ''}
-                            ${!isPreset ? getDetailField('Duration', i.duration) : ''}
-                            ${!isPreset ? getDetailField('Check', i.magicCheck && i.magicCheck[0] !== 'None' ? `${i.magicCheck[0]} + ${i.magicCheck[1]} + ${i.magicCheck[2]}`: '') : ''}
-                            ${!isPreset ? getDetailField('Damage', i.damage) : ''}
-                            ${!isPreset && i.damageType && i.damageType !== 'None' ? getDetailField('Type', i.damageType) : ''}
+                            ${getDetailField('Targeting', i.targeting)}
                         </div>
-                        <div class="border-t border-gray-600 pt-3">${getDetailField('Effect', i.effect)}</div>
+                        <div class="border-t border-gray-600 pt-3">${getDetailField('Description', i.effect)}</div>
                     </div>`;
                  footer = `
                     <div class="mt-6 flex justify-around items-center">
@@ -827,10 +967,32 @@
                     </div>`;
             } else if (type === 'info-screen') {
                 const char = AppState.party[data.charIndex];
+                const effectsList = (char.temporaryEffects || []).map(eff => {
+                    let desc = `${eff.source}: `;
+                    if (eff.type === 'attributeModification') {
+                        desc += `${eff.amount > 0 ? '+' : ''}${eff.amount} ${eff.attribute} die step(s)`;
+                    } else if (eff.type === 'misc') {
+                        desc = eff.description;
+                    } else {
+                        desc += 'Unknown effect';
+                    }
+                    return `<li class="text-green-300">${desc}</li>`;
+                }).join('');
                 mainContent = `
                     <h2 class="text-yellow-300 text-lg mb-4">${char.name} - Info</h2>
-                    <p>Character Info Screen (Work in Progress)</p>
-                    <p>Resistances, Bonds, Fabula Points, etc. will be here.</p>`;
+                    <div class="space-y-4">
+                        <div>
+                            <h3 class="text-cyan-300 underline">Active Effects</h3>
+                            <ul class="list-disc list-inside mt-1">
+                                ${effectsList || '<li class="text-gray-400">None</li>'}
+                            </ul>
+                        </div>
+                        <div>
+                           <h3 class="text-cyan-300 underline">Affinities</h3>
+                                <p class="text-gray-400 mt-1">${renderAffinities(char)}</p>
+                        </div>
+                    </div>
+                    `;
                 footer = `<div class="mt-6 flex justify-center"><button class="jrpg-window !p-2 action-button" data-action="close-modal">Close</button></div>`
             }
             return mainContent + footer;
@@ -866,6 +1028,59 @@
             return html;
         }
 
+        function getSkillLibraryPickerModalContent(data) {
+            const { charIndex, parentPath } = data;
+            const searchTerm = data.searchTerm || '';
+
+            let content = `
+                <h2 class="text-yellow-300 text-lg mb-4">Add Skill/Spell from Library</h2>
+                <input type="text" id="skill-library-search" placeholder="Search skills..." value="${searchTerm}" class="mb-2">
+                <div class="max-h-96 overflow-y-auto scrollable-menu pr-2 space-y-2">
+            `;
+
+            const filteredClasses = Object.entries(FU_SKILL_LIBRARY.classes).filter(([className, classData]) => 
+                classData.skills.some(skill => skill.name.toLowerCase().includes(searchTerm.toLowerCase()))
+            );
+
+            const filteredSpells = Object.values(FU_SKILL_LIBRARY.spells).filter(spell => 
+                spell.name.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+
+            filteredClasses.forEach(([className, classData]) => {
+                content += `<h3 class="text-cyan-300 font-bold mt-2">${className}</h3>`;
+                classData.skills.forEach(skill => {
+                    if (skill.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+                        content += `
+                            <div class="p-1 menu-item flex justify-between items-center" data-action="add-skill-from-library" data-char-index="${charIndex}" data-skill-type="class" data-class-name="${className}" data-skill-name="${skill.name}">
+                                <span>${skill.name}</span>
+                                <span class="text-sm text-gray-400">${skill.type}</span>
+                            </div>
+                        `;
+                    }
+                });
+            });
+
+            if (filteredSpells.length > 0) {
+                 content += `<h3 class="text-cyan-300 font-bold mt-4">Spells</h3>`;
+                 filteredSpells.forEach(spell => {
+                     content += `
+                        <div class="p-1 menu-item flex justify-between items-center" data-action="add-skill-from-library" data-char-index="${charIndex}" data-skill-type="spell" data-skill-name="${spell.name}">
+                            <span>${spell.name}</span>
+                            <span class="text-sm" style="color: var(--mp-color);">${spell.costValue} ${spell.costType}</span>
+                        </div>
+                     `;
+                 });
+            }
+
+            content += `</div>
+                <div class="mt-4 flex justify-between">
+                    <button class="jrpg-window !p-2 action-button" data-action="open-custom-skill-editor">Create Custom Skill</button>
+                    <button class="jrpg-window !p-2 action-button" data-action="close-modal">Cancel</button>
+                </div>
+            `;
+            return content;
+        }
+
         // --- EVENT HANDLERS & ACTIONS ---
 
         function handleGlobalClick(e) {
@@ -874,12 +1089,11 @@
             const { action, charIndex, ...data } = target.dataset;
             const cIndex = parseInt(charIndex);
 
-            // Actions that modify the shared AppState
             const sharedActions = {
                 'toggle-status': () => {
                     AppState.party[cIndex].status[data.status] = !AppState.party[cIndex].status[data.status];
                     saveData();
-                    if (isOfflineMode) renderStatusPanels(); // Immediate feedback for offline
+                    if (isOfflineMode) renderStatusPanels();
                 },
                 'confirm-adjust-stat': () => {
                     playSound('confirm');
@@ -887,15 +1101,10 @@
                     let val = parseInt(document.getElementById('adjust-value').value) || 0;
                     const s = AppState.party[charIndex].stats[stat];
                     let newVal = s.current + (data.op === 'add' ? val : -val);
-
-                    // Prevent going below zero for all stats
                     newVal = Math.max(0, newVal);
-
-                    // When adding, cap HP, MP, and IP at their max.
                     if (data.op === 'add' && (stat === 'hp' || stat === 'mp' || stat === 'ip')) {
                         newVal = Math.min(newVal, s.max);
                     }
-                    
                     s.current = newVal;
                     LocalUIState.activeModal = null;
                     saveData();
@@ -944,21 +1153,15 @@
                     } else { playSound('error'); }
                 },
                 'confirm-cure-status': () => {
-                    const { userCharIndex, targetCharIndex, item } = LocalUIState.activeModal.data;
-                    const userChar = AppState.party[userCharIndex];
+                    const { targetCharIndex } = LocalUIState.activeModal.data;
                     const targetChar = AppState.party[targetCharIndex];
-                    const costResource = item.costType.toLowerCase();
-
-                    if (targetChar.status[data.status] && userChar.stats[costResource].current >= item.costValue) {
-                        userChar.stats[costResource].current -= item.costValue;
+                    if (targetChar.status[data.status]) {
                         targetChar.status[data.status] = false;
                         playSound('confirm');
                         LocalUIState.activeModal = null;
                         saveData();
                         renderAll();
-                    } else {
-                        playSound('error');
-                    }
+                    } else { playSound('error'); }
                 },
                 'refill-ip': () => {
                     playSound('healParty');
@@ -974,61 +1177,30 @@
                     const name = document.getElementById('skill-edit-name').value || 'New';
                     let newItem;
                     if ( (isNew && newType === 'category') || (!isNew && item.type === 'category') ) {
-                        newItem = { name, type: 'category', isCollapsed: false, items: isNew ? [] : (item.items || []) };
+                        newItem = { ...item, name, type: 'category', isCollapsed: false, items: isNew ? [] : (item.items || []) };
                     } else {
                         newItem = {
+                            ...item,
                             name, type: 'item',
                             costType: document.getElementById('skill-edit-cost-type').value,
                             costValue: parseInt(document.getElementById('skill-edit-cost-value').value) || 0,
-                            target: document.getElementById('skill-edit-target').value,
-                            duration: document.getElementById('skill-edit-duration').value,
-                            magicCheck: [
-                                document.getElementById('skill-edit-check1').value,
-                                document.getElementById('skill-edit-check2').value,
-                                parseInt(document.getElementById('skill-edit-check-bonus').value) || 0
-                            ],
-                            damage: document.getElementById('skill-edit-damage').value,
-                            damageType: document.getElementById('skill-edit-damage-type').value,
+                            targeting: document.getElementById('skill-edit-targeting').value,
+                            upTo: document.getElementById('skill-edit-up-to').checked,
+                            doesNotStack: document.getElementById('skill-edit-does-not-stack').checked,
                             effect: document.getElementById('skill-edit-effect').value || '',
-                            isHealing: document.getElementById('skill-edit-is-healing').checked,
-                            healStat: document.getElementById('skill-edit-heal-stat').value,
-                            healValue: parseInt(document.getElementById('skill-edit-heal-value').value) || 0,
-                            targeting: document.getElementById('skill-edit-targeting').value
+                            effects: item.effects || [],
                         };
                     }
 
                     if (isNew) {
                         const { item: parentCategory } = _getItemAndParentByPath(char.commands, itemPath);
                         let parentList = parentCategory ? parentCategory.items : char.commands;
-                        if (!parentList) {
-                            if(parentCategory) {
-                                parentCategory.items = [];
-                                parentList = parentCategory.items;
-                            }
-                        }
+                        if (!parentList) parentCategory.items = [], parentList = parentCategory.items;
                         parentList.push(newItem);
                     } else {
                         const { parent: parentList, index } = _getItemAndParentByPath(char.commands, itemPath);
                         if(parentList && index > -1) parentList[index] = newItem;
                     }
-                    saveData();
-                    localActions['close-skill-editor']();
-                },
-                'save-preset-item': () => {
-                    playSound('confirm');
-                    const { charIndex, itemPath } = LocalUIState.activeModal.data;
-                    const { parent: parentList, item, index } = _getItemAndParentByPath(AppState.party[charIndex].commands, itemPath);
-                    if (!item) return;
-
-                    item.costType = document.getElementById('preset-edit-cost-type').value;
-                    item.costValue = parseInt(document.getElementById('preset-edit-cost-value').value) || 0;
-                    item.effect = document.getElementById('preset-edit-effect').value;
-
-                    if (item.isHealing) {
-                        item.healStat = document.getElementById('preset-edit-heal-stat').value;
-                        item.healValue = parseInt(document.getElementById('skill-edit-heal-value').value) || 0;
-                    }
-                    parentList[index] = item;
                     saveData();
                     localActions['close-skill-editor']();
                 },
@@ -1053,6 +1225,50 @@
                         if(isOfflineMode) renderModal();
                     }
                 },
+                'add-skill-from-library': () => {
+                    playSound('confirm');
+                    const { charIndex, skillType, className, skillName } = data;
+                    const { parentPath } = LocalUIState.activeModal.data;
+                    const char = AppState.party[charIndex];
+                    let skillData;
+
+                    if (skillType === 'class') {
+                        skillData = FU_SKILL_LIBRARY.classes[className].skills.find(s => s.name === skillName);
+                    } else { // spell
+                        skillData = FU_SKILL_LIBRARY.spells[skillName];
+                    }
+
+                    if (skillData) {
+                        const { item: parentCategory } = _getItemAndParentByPath(char.commands, parentPath);
+                        let parentList = parentCategory ? parentCategory.items : char.commands;
+                        if (!parentList) parentCategory.items = [], parentList = parentCategory.items;
+                        
+                        const newItem = JSON.parse(JSON.stringify(skillData));
+                        if(skillData.type === 'passive') { // Passive skills shouldn't be "usable"
+                             newItem.costType = 'None';
+                             newItem.targeting = 'Self';
+                        }
+                        
+                        parentList.push(newItem);
+                        saveData();
+                        localActions['close-skill-editor']();
+                    }
+                },
+                'open-custom-skill-editor': () => {
+                    playSound('confirm');
+                    const { charIndex, parentPath } = LocalUIState.activeModal.data;
+                     LocalUIState.activeModal = {
+                        type: 'edit-skill',
+                        data: {
+                            charIndex,
+                            character: AppState.party[charIndex],
+                            itemPath: parentPath,
+                            isNew: true,
+                            newType: 'item'
+                        }
+                    };
+                    renderModal();
+                },
                 'confirm-multi-target': () => {
                     const { item, userCharIndex, selectedTargets } = LocalUIState.activeModal.data;
                     applyAbilityEffect(AppState.party[userCharIndex], item, selectedTargets);
@@ -1061,9 +1277,39 @@
                     const {item, userCharIndex} = LocalUIState.activeModal.data;
                     applyAbilityEffect(AppState.party[userCharIndex], item, [parseInt(data.targetCharIndex)]);
                 },
+                'delete-effect': () => {
+                    const editModalData = LocalUIState.activeModal.data;
+                    const item = editModalData.item;
+                    const indexToDelete = parseInt(data.index);
+                    if (item && item.effects && item.effects[indexToDelete]) {
+                        item.effects.splice(indexToDelete, 1);
+                        renderModal();
+                    }
+                },
+                'save-effect': () => {
+                    const editModalData = LocalUIState.activeModal.data;
+                    const item = editModalData.item;
+                    const indexToSave = parseInt(data.index);
+                    
+                    const effectContainer = document.querySelector('.modal-backdrop .jrpg-window');
+                    const newEffect = { type: editModalData.editingEffect.effect.type };
+                    effectContainer.querySelectorAll('[data-prop]').forEach(input => {
+                        const prop = input.dataset.prop;
+                        newEffect[prop] = input.type === 'number' ? parseInt(input.value) || 0 : input.value;
+                    });
+
+                    if (indexToSave === -1) { 
+                        if (!item.effects) item.effects = [];
+                        item.effects.push(newEffect);
+                    } else { 
+                        item.effects[indexToSave] = newEffect;
+                    }
+                    
+                    delete editModalData.editingEffect;
+                    renderModal();
+                },
             };
 
-            // Actions that only affect the local UI
             const localActions = {
                 'open-menu': () => { playSound('confirm'); LocalUIState.activeMenus[cIndex].path.push(parseInt(data.itemIndex)); renderCommandMenus(); },
                 'go-back': () => { playSound('cancel'); LocalUIState.activeMenus[cIndex].path.pop(); renderCommandMenus(); },
@@ -1093,7 +1339,7 @@
                     };
                     renderModal();
                 },
-                'close-modal-backdrop': () => { if(e.target.classList.contains('modal-backdrop') && !['edit-skill', 'edit-character', 'delete-confirm', 'edit-preset-item', 'confirm', 'admin-panel', 'admin-prompt'].includes(LocalUIState.activeModal?.type) ) localActions['close-modal'](); },
+                'close-modal-backdrop': () => { if(e.target.classList.contains('modal-backdrop') && !['edit-skill', 'edit-character', 'delete-confirm', 'edit-preset-item', 'confirm', 'admin-panel', 'admin-prompt', 'high-roll-prompt', 'spell-library', 'skill-library-picker'].includes(LocalUIState.activeModal?.type) ) localActions['close-modal'](); },
                 'edit-character': () => { playSound('confirm'); LocalUIState.activeModal = {type:'edit-character', data:{character:AppState.party[cIndex], charIndex:cIndex}}; renderModal(); },
                 'edit-mode-toggle': () => { playSound('confirm'); LocalUIState.isEditMode = !LocalUIState.isEditMode; if (!LocalUIState.isEditMode) { LocalUIState.activeMenus = Array(4).fill(null).map(() => ({path: []})); } renderAll(); },
                 'copy-party-id': () => { const textToCopy = partyId; const textArea = document.createElement("textarea"); textArea.value = textToCopy; textArea.style.position = "fixed"; textArea.style.left = "-9999px"; document.body.appendChild(textArea); textArea.select(); try { document.execCommand('copy'); const p = e.target; const originalText = p.textContent; p.textContent = "Copied!"; p.style.color = 'var(--hp-color)'; setTimeout(() => { p.textContent = originalText; p.style.color = ''; }, 1500); } catch (err) { console.error('Fallback copy failed', err); } document.body.removeChild(textArea); },
@@ -1125,40 +1371,31 @@
                     }
                     if (!canAfford) { playSound('error'); return; }
 
-                    const effect = item.effect.toLowerCase();
-                    if (effect.includes('cure one status')) {
-                        const partyWithStatus = AppState.party.map((p, i) => ({...p, originalIndex: i})).filter(p => Object.values(p.status).some(s => s));
-                        if (partyWithStatus.length === 0) { playSound('error'); return; }
-                        LocalUIState.activeModal = { type: 'tonic-target-selection', data: { item, userCharIndex: cIndex, partyWithStatus } };
+                    if (item.name === 'Magic Tent') { sharedActions['use-magic-tent'](user); return; }
+
+                    if (item.targeting === 'Self') {
+                        applyAbilityEffect(user, item, [cIndex]);
+                        return;
+                    }
+                    if (item.targeting === 'All Targets') {
+                        const targets = AppState.party.map((_, i) => i);
+                        applyAbilityEffect(user, item, targets);
+                    } else if (item.targeting === 'All Allies') {
+                        const targets = AppState.party.map((_, i) => i).filter(i => i !== cIndex);
+                        applyAbilityEffect(user, item, targets);
+                    } else if (item.targeting === '1 Target') {
+                        const cureStatusEffect = item.effects.find(e => e.type === 'cureStatus' && e.status === 'any');
+                        if (cureStatusEffect) {
+                            const partyWithStatus = AppState.party.map((p, i) => ({...p, originalIndex: i})).filter(p => Object.values(p.status).some(s => s));
+                            if (partyWithStatus.length === 0) { playSound('error'); return; }
+                            LocalUIState.activeModal = { type: 'tonic-target-selection', data: { item, userCharIndex: cIndex, partyWithStatus } };
+                        } else {
+                            LocalUIState.activeModal = {type:'target-selection', data:{item, userCharIndex: cIndex}};
+                        }
                         renderModal();
-                        return;
-                    }
-                    if (item.name === 'Magic Tent') {
-                        sharedActions['use-magic-tent'](user);
-                        return;
-                    }
-                    if (item.isHealing) {
-                        if (item.targeting === 'All Targets') {
-                            const targets = AppState.party.map((_, i) => i);
-                            applyAbilityEffect(user, item, targets);
-                        } else if (item.targeting === 'All Allies') {
-                            const targets = AppState.party.map((_, i) => i).filter(i => i !== cIndex);
-                            applyAbilityEffect(user, item, targets);
-                        } else if (item.targeting === '1 Target') {
-                            LocalUIState.activeModal = {type:'target-selection', data:{item, userCharIndex: cIndex}};
-                            renderModal();
-                        } else {
-                            LocalUIState.activeModal = {type:'target-selection-multi', data:{item, userCharIndex: cIndex, selectedTargets: []}};
-                            renderModal();
-                        }
-                    } else {
-                        const requiresTarget = effect.includes('recover');
-                        if (requiresTarget) {
-                            LocalUIState.activeModal = {type:'target-selection', data:{item, userCharIndex: cIndex}};
-                            renderModal();
-                        } else {
-                            applyAbilityEffect(user, item, [cIndex]);
-                        }
+                    } else { // Multi-target
+                        LocalUIState.activeModal = {type:'target-selection-multi', data:{item, userCharIndex: cIndex, selectedTargets: []}};
+                        renderModal();
                     }
                 },
                 'select-tonic-target': () => {
@@ -1191,11 +1428,7 @@
                     if (!item) return;
 
                     const modalData = { item: JSON.parse(JSON.stringify(item)), itemPath: pathArr, isNew: false };
-                    if (PRESET_ITEMS.includes(item.name)) {
-                        LocalUIState.activeModal.type = 'edit-preset-item';
-                    } else {
-                        LocalUIState.activeModal.type = 'edit-skill';
-                    }
+                    LocalUIState.activeModal.type = 'edit-skill';
                     LocalUIState.activeModal.data = { ...LocalUIState.activeModal.data, ...modalData };
                     renderModal();
                 },
@@ -1216,10 +1449,15 @@
                     const itemPath = findPath(AppState.party[charIndex].commands, item.name, []);
                     if (!itemPath) { playSound('error'); return; }
                     
-                    const modalData = { item: JSON.parse(JSON.stringify(item)), itemPath, isNew: false, charIndex };
                     LocalUIState.activeModal = {
-                        type: PRESET_ITEMS.includes(item.name) ? 'edit-preset-item' : 'edit-skill',
-                        data: { character: AppState.party[charIndex], charIndex, ...modalData }
+                        type: 'edit-skill',
+                        data: {
+                            charIndex: charIndex,
+                            character: AppState.party[charIndex],
+                            item: JSON.parse(JSON.stringify(item)),
+                            itemPath: itemPath,
+                            isNew: false
+                        }
                     };
                     renderModal();
                 },
@@ -1227,8 +1465,21 @@
                     playSound('confirm');
                     const { charIndex } = LocalUIState.activeModal.data;
                     const pathArr = data.path ? data.path.split(',').map(Number) : [];
+                    if (data.type === 'item') {
+                        LocalUIState.activeModal = {
+                            type: 'skill-library-picker',
+                            data: { 
+                                ...LocalUIState.activeModal.data,
+                                parentPath: pathArr,
+                            }
+                        };
+                        renderModal();
+                        document.getElementById('skill-library-search')?.focus();
+                        return;
+                    }
+                    // For categories
                     LocalUIState.activeModal.type = 'edit-skill';
-                    LocalUIState.activeModal.data.item = { type: data.type };
+                    LocalUIState.activeModal.data.item = {};
                     LocalUIState.activeModal.data.itemPath = pathArr;
                     LocalUIState.activeModal.data.newType = data.type;
                     LocalUIState.activeModal.data.isNew = true;
@@ -1246,6 +1497,74 @@
                         data: { ...LocalUIState.activeModal.data, itemPath: pathArr, itemName: itemToDelete.name, itemType: itemToDelete.type }
                     };
                     renderModal();
+                },
+                'add-effect': () => {
+                     const item = LocalUIState.activeModal.data.item;
+                     item.name = document.getElementById('skill-edit-name').value;
+                     item.costType = document.getElementById('skill-edit-cost-type').value;
+                     item.costValue = parseInt(document.getElementById('skill-edit-cost-value').value) || 0;
+                     item.targeting = document.getElementById('skill-edit-targeting').value;
+                     item.upTo = document.getElementById('skill-edit-up-to').checked;
+                     item.doesNotStack = document.getElementById('skill-edit-does-not-stack').checked;
+                     item.effect = document.getElementById('skill-edit-effect').value;
+                    
+                    const content = `
+                        <div class="modal-backdrop" data-action="close-add-effect-menu">
+                            <div class="jrpg-window w-11/12 max-w-sm">
+                                <h3 class="text-yellow-300 mb-2">Select Effect Type</h3>
+                                <div class="grid grid-cols-2 gap-2">
+                                    ${Object.entries(EFFECT_TYPES).map(([type, {name}]) => `<button class="jrpg-window !p-2 action-button" data-action="select-effect-type" data-type="${type}">${name}</button>`).join('')}
+                                </div>
+                            </div>
+                        </div>`;
+                    document.getElementById('modal-container').insertAdjacentHTML('beforeend', content);
+                },
+                'close-add-effect-menu': () => {
+                    e.target.remove();
+                },
+                'select-effect-type': () => {
+                    e.target.closest('.modal-backdrop').remove();
+                    const effectType = data.type;
+                    LocalUIState.activeModal.data.editingEffect = {
+                        effect: { type: effectType },
+                        index: -1
+                    };
+                    renderModal();
+                },
+                'edit-effect': () => {
+                    const item = LocalUIState.activeModal.data.item;
+                    const index = parseInt(data.index);
+                     item.name = document.getElementById('skill-edit-name').value;
+                     item.costType = document.getElementById('skill-edit-cost-type').value;
+                     item.costValue = parseInt(document.getElementById('skill-edit-cost-value').value) || 0;
+                     item.targeting = document.getElementById('skill-edit-targeting').value;
+                     item.upTo = document.getElementById('skill-edit-up-to').checked;
+                     item.doesNotStack = document.getElementById('skill-edit-does-not-stack').checked;
+                     item.effect = document.getElementById('skill-edit-effect').value;
+
+                    if (item && item.effects && item.effects[index]) {
+                        LocalUIState.activeModal.data.editingEffect = {
+                            effect: JSON.parse(JSON.stringify(item.effects[index])),
+                            index: index
+                        };
+                        renderModal();
+                    }
+                },
+                'cancel-edit-effect': () => {
+                    delete LocalUIState.activeModal.data.editingEffect;
+                    renderModal();
+                },
+                'cancel-edit-effect-backdrop': () => {
+                     if (e.target.classList.contains('modal-backdrop')) {
+                        delete LocalUIState.activeModal.data.editingEffect;
+                        renderModal();
+                    }
+                },
+                'confirm-high-roll': () => {
+                    const hr = parseInt(document.getElementById('high-roll-input').value) || 0;
+                    if(LocalUIState.activeModal.data.onConfirm) {
+                        LocalUIState.activeModal.data.onConfirm(hr);
+                    }
                 },
                 'admin-join-session': () => { joinParty(data.partyId); },
                 'admin-delete-session-prompt': () => {
@@ -1265,7 +1584,7 @@
                 'confirm-admin-delete': async () => {
                     try {
                         await db.collection('parties').doc(data.partyId).delete();
-                        handleJoinParty(); // Re-trigger admin panel logic
+                        handleJoinParty();
                     } catch (error) {
                         LocalUIState.activeModal.data.error = error.message;
                         renderModal();
@@ -1348,13 +1667,14 @@
                     reader.onload = (event) => {
                         try {
                             const importedChar = JSON.parse(event.target.result);
-                            if (importedChar.name && importedChar.stats && importedChar.commands) {
+                            if (importedChar.name && importedChar.stats) { // Simplified check
                                 const originalId = AppState.party[charIndex].id;
-                                AppState.party[charIndex] = importedChar;
-                                AppState.party[charIndex].id = originalId; // Preserve original ID
+                                const newChar = buildCharacterFromImport(importedChar);
+                                AppState.party[charIndex] = newChar;
+                                AppState.party[charIndex].id = originalId;
+                                computeCharacterStats(AppState.party[charIndex]);
                                 saveData();
                                 playSound('confirm');
-                                // Force modal re-render with new data
                                 LocalUIState.activeModal.data.character = AppState.party[charIndex];
                                 renderModal();
                             } else { playSound('error'); }
@@ -1362,105 +1682,204 @@
                     };
                     reader.readAsText(e.target.files[0]);
                 });
+
+                if (data.autoOpenPath) {
+                    const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+                    document.querySelector(`[data-action="edit-item"][data-path="${data.autoOpenPath.join(',')}"]`)?.dispatchEvent(event);
+                }
+
             } else if (type === 'adjust-stat') {
                 const input = document.getElementById('adjust-value');
                 input.focus();
                 input.select();
                 input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); document.querySelector('[data-action="confirm-adjust-stat"][data-op="add"]').click(); }});
-            } else if (type === 'edit-skill') {
-                const checkbox = document.getElementById('skill-edit-is-healing');
-                if (checkbox) {
-                    const healingOptions = document.getElementById('healing-options');
-                    checkbox.addEventListener('change', (e) => {
-                        healingOptions.classList.toggle('hidden', !e.target.checked);
-                    });
-                }
-                const check1 = document.getElementById('skill-edit-check1');
-                if(check1) {
-                    const check2 = document.getElementById('skill-edit-check2');
-                    const checkBonus = document.getElementById('skill-edit-check-bonus');
-                    check1.addEventListener('change', (e) => {
-                        const isNone = e.target.value === 'None';
-                        check2.disabled = isNone;
-                        checkBonus.disabled = isNone;
-                    });
-                }
-            } else if (type === 'admin-prompt') {
-                const input = document.getElementById('admin-password-input');
+            } else if (type === 'admin-prompt' || type === 'high-roll-prompt') {
+                const input = document.querySelector('.modal-backdrop input[type="number"], .modal-backdrop input[type="password"]');
                 input.focus();
+                input.select();
                 input.addEventListener('keydown', e => {
                     if (e.key === 'Enter') {
                         e.preventDefault();
-                        document.querySelector('[data-action="submit-admin-password"]').click();
+                        input.closest('.jrpg-window').querySelector('[data-action^="confirm-"], [data-action^="submit-"]').click();
                     }
+                });
+            } else if (type === 'skill-library-picker') {
+                const searchInput = document.getElementById('skill-library-search');
+                searchInput.focus();
+                searchInput.addEventListener('input', e => {
+                    LocalUIState.activeModal.data.searchTerm = e.target.value;
+                    renderModal();
+                    document.getElementById('skill-library-search').focus();
                 });
             }
         }
-        function applyAbilityEffect(userChar, ability, targetCharIndices) {
-            let costPaid = false;
-            const targetIndices = Array.isArray(targetCharIndices) ? targetCharIndices : [targetCharIndices];
 
+        function safeEval(formula) {
+            try {
+                // Only allow numbers, attributes, HR, HP_COST and basic math operators
+                if (/[^0-9a-zA-Z_+\-*/(). ]/.test(formula)) {
+                    console.error("Invalid characters in formula:", formula);
+                    return 0;
+                }
+                return new Function('return ' + formula)();
+            } catch (e) {
+                console.error("Error evaluating formula:", formula, e);
+                return 0;
+            }
+        }
+
+        async function applyAbilityEffect(userChar, ability, targetCharIndices, highRoll = null) {
+            const userCharIndex = AppState.party.findIndex(p => p.id === userChar.id);
+            let costPaid = false;
+            let hpCost = 0;
             if (ability.costType === '1/3 Current HP') {
                 const cost = Math.floor(userChar.stats.hp.current / 3);
                 if (userChar.stats.hp.current > cost) {
-                    userChar.stats.hp.current -= cost;
-                    costPaid = true;
+                    hpCost = cost;
+                    costPaid = true; 
                 }
             } else if (ability.costType !== 'None') {
                 const resLC = ability.costType.toLowerCase();
                 if (userChar.stats[resLC].current >= ability.costValue) {
-                    userChar.stats[resLC].current -= ability.costValue;
                     costPaid = true;
                 }
             } else {
                 costPaid = true;
             }
 
-            if (!costPaid) {
-                playSound('error');
+            if (!costPaid) { playSound('error'); return; }
+
+            const manualDamageEffect = ability.effects.find(e => e.type === 'damage' && e.calculation === 'manual');
+            if (manualDamageEffect && highRoll === null) {
+                LocalUIState.activeModal = { type: 'high-roll-prompt', data: {
+                    onConfirm: (hr) => {
+                        LocalUIState.activeModal = null; // Close prompt before applying effect
+                        applyAbilityEffect(userChar, ability, targetCharIndices, hr);
+                    }
+                } };
+                renderModal();
                 return;
+            }
+            
+            if (ability.costType === '1/3 Current HP') {
+                userChar.stats.hp.current -= hpCost;
+            } else if (ability.costType !== 'None') {
+                userChar.stats[ability.costType.toLowerCase()].current -= ability.costValue;
             }
 
             let opensCureModal = false;
-            targetIndices.forEach(targetCharIndex => {
+            targetCharIndices.forEach(targetCharIndex => {
                 const targetChar = AppState.party[targetCharIndex];
-                if (ability.isHealing) {
-                    const statToHeal = ability.healStat.toLowerCase();
-                    const s = targetChar.stats[statToHeal];
-                    s.current = Math.min(s.max, s.current + ability.healValue);
-                }
-                
-                const effect = ability.effect.toLowerCase();
-                if (effect.includes('cure one status')) {
-                    const userCharIndex = AppState.party.findIndex(p => p.id === userChar.id);
-                    const hasStatus = Object.values(targetChar.status).some(s => s);
-                    if (hasStatus) {
-                        opensCureModal = true;
-                        LocalUIState.activeModal = { type: 'cure-status', data: { item: ability, userCharIndex, targetCharIndex } };
-                        renderModal();
+                (ability.effects || []).forEach(effect => {
+                    switch (effect.type) {
+                        case 'healing':
+                        case 'resourceLoss': {
+                            const stat = effect.stat.toLowerCase();
+                             const formula = effect.value.replace(/\[\[(\w+)\]\]/g, '$1')
+                                .replace(/DEX|INS|MIG|WLP/g, (match) => {
+                                    const { die } = getAttributeDisplayInfo(userChar, match);
+                                    return parseInt(die.slice(1));
+                                });
+                            const value = Math.max(0, safeEval(formula));
+                            if(effect.type === 'healing') {
+                                targetChar.stats[stat].current = Math.min(targetChar.stats[stat].max, targetChar.stats[stat].current + value);
+                            } else {
+                                targetChar.stats[stat].current = Math.max(0, targetChar.stats[stat].current - value);
+                            }
+                            break;
+                        }
+                        case 'damage': {
+                            let value = 0;
+                            const formula = effect.value.replace(/\[\[(\w+)\]\]/g, '$1')
+                                .replace(/HR/g, highRoll || 0)
+                                .replace(/HP_COST/g, hpCost)
+                                .replace(/DEX|INS|MIG|WLP/g, (match) => {
+                                    const { die } = getAttributeDisplayInfo(userChar, match);
+                                    return parseInt(die.slice(1));
+                                });
+                            value = Math.max(0, safeEval(formula));
+                            
+                            let finalDamage = value;
+                            // Check for target affinities
+                            const targetAffinities = targetChar.computedAffinities || {};
+                            const affinity = targetAffinities[effect.damageType];
+                            if (affinity === 'Vulnerability') finalDamage *= 2;
+                            if (affinity === 'Resistance' && !effect.ignoresResistance) finalDamage = Math.floor(finalDamage / 2);
+                            if (affinity === 'Immunity' && !effect.ignoresResistance) finalDamage = 0;
+                            if (affinity === 'Absorption') finalDamage = -value; // Negative damage for healing
+                            
+                            targetChar.stats.hp.current = Math.max(0, targetChar.stats.hp.current - finalDamage);
+                            if (finalDamage < 0) { // Absorption healing
+                                targetChar.stats.hp.current = Math.min(targetChar.stats.hp.max, targetChar.stats.hp.current - finalDamage);
+                            }
+                            break;
+                        }
+                        case 'inflictStatus':
+                            if (targetChar.status.hasOwnProperty(effect.status)) {
+                                targetChar.status[effect.status] = true;
+                            }
+                            break;
+                        case 'cureStatus':
+                            if (effect.status === 'any') {
+                                const hasStatus = Object.values(targetChar.status).some(s => s);
+                                if (hasStatus) {
+                                    opensCureModal = true;
+                                    LocalUIState.activeModal = { type: 'cure-status', data: { item: ability, userCharIndex, targetCharIndex } };
+                                }
+                            } else if (targetChar.status.hasOwnProperty(effect.status)) {
+                                targetChar.status[effect.status] = false;
+                            }
+                            break;
+                         case 'attributeModification': {
+                            if (ability.doesNotStack) {
+                                const existingEffect = targetChar.temporaryEffects.find(eff => eff.source === ability.name && eff.attribute === effect.attribute);
+                                if (existingEffect) break; // Don't apply if it already exists
+                            }
+                            const { attribute, modification, amount, duration } = effect;
+                            const tempEffect = {
+                                type: 'attributeModification',
+                                attribute,
+                                amount: modification === 'increase' ? amount : -amount,
+                                duration,
+                                source: ability.name,
+                            };
+                            targetChar.temporaryEffects.push(tempEffect);
+                            break;
+                        }
+                        case 'misc': {
+                             if (ability.doesNotStack) {
+                                const existingEffect = targetChar.temporaryEffects.find(eff => eff.source === ability.name);
+                                if (existingEffect) break;
+                            }
+                            const { description, duration } = effect;
+                             const tempEffect = {
+                                type: 'misc',
+                                description,
+                                duration,
+                                source: ability.name,
+                            };
+                            targetChar.temporaryEffects.push(tempEffect);
+                            break;
+                        }
+                        case 'dispel': {
+                            targetChar.temporaryEffects = [];
+                            break;
+                        }
                     }
-                }
+                });
             });
             
             playSound('confirm');
             
-            if(!opensCureModal) {
-                 LocalUIState.activeModal = null;
-            }
+            if(!opensCureModal) LocalUIState.activeModal = null;
             
             saveData();
             
-            // Re-render immediately only if in offline mode or if the modal was closed
-            if (isOfflineMode && !opensCureModal) {
-                 renderAll();
-            } else if (!isOfflineMode && !opensCureModal) {
-                // In online mode, the listener will trigger the re-render.
-                // But if the modal was closed, we need to force it.
-                 renderAll();
-            }
+            if (isOfflineMode) renderAll();
+             else if (!opensCureModal) renderAll();
         }
+
         function createDefaultCharacter(id) {
-            const defaultItem = { name: 'Default', costType: 'None', costValue: 0, effect: '', magicCheck: ['DEX', 'DEX', 0], damage: '', damageType: 'Physical', duration: '', target: '', type: 'item', isHealing: false, healStat: 'HP', healValue: 0, targeting: '1 Target' };
             const character = {
                 id,
                 name: `Hero ${id + 1}`,
@@ -1470,15 +1889,22 @@
                 mdef: 10,
                 attributes: { DEX: 'd6', INS: 'd6', MIG: 'd6', WLP: 'd6' },
                 status: { slow: false, dazed: false, weak: false, shaken: false, poisoned: false, enraged: false },
+                temporaryEffects: [],
                 commands: [
-                    { name: 'Attack', type: 'category', items: [{ ...defaultItem, name: 'Basic Attack', effect: '[[MIG]] vs Defense.' }] },
-                    { name: 'Magic', type: 'category', items: [{ ...defaultItem, name: 'Fire', costType: 'MP', costValue: 5, damageType: 'Fire', effect: 'Deals minor Fire damage.' }] },
-                    { name: 'Skills', type: 'category', items: [{ ...defaultItem, name: 'Blood Blade', costType: '1/3 Current HP', effect: 'Deals damage equal to HP spent.' }] },
-                    { name: 'Items', type: 'category', items: [
-                        { ...defaultItem, name: 'Remedy', costType: 'IP', costValue: 3, effect: 'Recover 50 HP.', isHealing: true, healStat: 'HP', healValue: 50, targeting: '1 Target' },
-                        { ...defaultItem, name: 'Elixir', costType: 'IP', costValue: 3, effect: 'Recover 50 MP.', isHealing: true, healStat: 'MP', healValue: 50, targeting: '1 Target' },
-                        { ...defaultItem, name: 'Tonic', costType: 'IP', costValue: 2, effect: 'Cure one status.' },
-                        { ...defaultItem, name: 'Magic Tent', costType: 'IP', costValue: 4, effect: 'Fully rest.' },
+                    { name: 'Attack', type: 'category', isCollapsed: false, items: [
+                        { name: 'Basic Attack', type: 'item', targeting: '1 Target', upTo: false, doesNotStack: true, costType: 'None', costValue: 0, effect: '[[MIG]] vs Defense.', effects: [{type: 'damage', value: 'HR+MIG', damageType: 'Physical', calculation: 'manual'}] }
+                    ]},
+                    { name: 'Magic', type: 'category', isCollapsed: false, items: [
+                        { name: 'Fire', type: 'item', targeting: '1 Target', upTo: false, doesNotStack: true, costType: 'MP', costValue: 5, effect: 'Deals minor Fire damage.', effects: [{type: 'damage', value: '10', damageType: 'Fire', calculation: 'auto'}] }
+                    ]},
+                    { name: 'Skills', type: 'category', isCollapsed: false, items: [
+                        { name: 'Blood Blade', type: 'item', targeting: '1 Target', upTo: false, doesNotStack: true, costType: '1/3 Current HP', costValue: 0, effect: 'Deals damage equal to HP spent.', effects: [{type: 'damage', value: 'HP_COST', damageType: 'Physical', calculation: 'auto'}] }
+                    ]},
+                    { name: 'Items', type: 'category', isCollapsed: false, items: [
+                        { name: 'Remedy', type: 'item', targeting: '1 Target', upTo: false, doesNotStack: true, costType: 'IP', costValue: 3, effect: 'Recover 50 HP.', effects: [{type: 'healing', stat: 'HP', value: '50'}] },
+                        { name: 'Elixir', type: 'item', targeting: '1 Target', upTo: false, doesNotStack: true, costType: 'IP', costValue: 3, effect: 'Recover 50 MP.', effects: [{type: 'healing', stat: 'MP', value: '50'}] },
+                        { name: 'Tonic', type: 'item', targeting: '1 Target', upTo: false, doesNotStack: true, costType: 'IP', costValue: 2, effect: 'Cure one status effect.', effects: [{type: 'cureStatus', status: 'any'}] },
+                        { name: 'Magic Tent', type: 'item', targeting: 'All Allies', upTo: false, doesNotStack: true, costType: 'IP', costValue: 4, effect: 'Fully rest.', effects: [] },
                     ] },
                 ],
                 customization: { categoryColor: '#ffff00', itemColor: '#ffffff', nameColor: '#ffff00' }
@@ -1486,16 +1912,36 @@
 
             if (id === 0) {
                 character.attributes = { DEX: 'd10', INS: 'd10', MIG: 'd10', WLP: 'd10' };
-                const attackCategory = character.commands.find(c => c.name === 'Attack');
-                if (attackCategory) {
-                    attackCategory.items.push(
-                        { ...defaultItem, name: 'A Very Very Long Skill Name With No Cost', effect: 'This is a test skill.' },
-                        { ...defaultItem, name: 'Another Ridiculously Long Skill Name With Cost', costType: 'MP', costValue: 99, effect: 'This is another test skill.' }
-                    );
-                }
+                character.commands.push({ name: 'Test Skills', type: 'category', isCollapsed: false, items: [
+                    { name: 'Test Fire', type: 'item', targeting: '1 Target', upTo: false, doesNotStack: true, costType: 'MP', costValue: 1, effect: 'Test Fire Damage', effects: [{type: 'damage', value: 'WLP+5', damageType: 'Fire', calculation: 'auto'}] },
+                    { name: 'Test Ice All', type: 'item', targeting: 'All Allies', upTo: false, doesNotStack: true, costType: 'MP', costValue: 1, effect: 'Test Ice Damage All Allies', effects: [{type: 'damage', value: '15', damageType: 'Ice', calculation: 'auto'}] },
+                    { name: 'Test Manual', type: 'item', targeting: '1 Target', upTo: false, doesNotStack: true, costType: 'None', costValue: 0, effect: 'Test Manual Damage', effects: [{type: 'damage', value: 'HR+MIG', damageType: 'Physical', calculation: 'manual'}] },
+                    { name: 'Test Weaken', type: 'item', targeting: '1 Target', upTo: false, doesNotStack: true, costType: 'None', costValue: 0, effect: 'Test Inflict Weak', effects: [{type: 'inflictStatus', status: 'weak'}] },
+                    { name: 'Empower', type: 'item', targeting: 'Self', upTo: false, doesNotStack: true, costType: 'None', costValue: 0, effect: 'Increase MIG by 1 die step.', effects: [{type: 'attributeModification', attribute: 'MIG', modification: 'increase', amount: 1, duration: 'scene'}] },
+                    { name: 'Dispel', type: 'item', targeting: '1 Target', upTo: false, doesNotStack: true, costType: 'MP', costValue: 10, effect: 'Removes temporary magical effects.', effects: [{type: 'dispel', targetEffects: 'all'}] },
+                ]});
             }
             return character;
         }
+
+        function renderAffinities(char) {
+            const affinities = char.computedAffinities || {};
+            if (Object.keys(affinities).length === 0) return 'None';
+            
+            return Object.entries(affinities).map(([type, value]) => {
+                const damageData = DAMAGE_TYPE_DATA[type] || {};
+                let affinityText = '';
+                switch(value) {
+                    case 'Resistance': affinityText = 'Resist'; break;
+                    case 'Vulnerability': affinityText = 'Vulnerable'; break;
+                    case 'Immunity': affinityText = 'Immune'; break;
+                    case 'Absorption': affinityText = 'Absorb'; break;
+                    default: affinityText = value;
+                }
+                return `<span class="inline-flex items-center mr-2" style="color: ${damageData.color};">${affinityText} ${type}</span>`;
+            }).join('');
+        }
+
         function setupMarqueeListeners() {
             document.getElementById('app-container').addEventListener('mouseover', (e) => {
                 const skillNameContainer = e.target.closest('.truncate-on-hover');
@@ -1533,6 +1979,110 @@
                         textSpan.textContent = skillNameContainer._originalText;
                     }
                 }
+            });
+        }
+        function buildCharacterFromImport(importedChar) {
+            const newChar = createDefaultCharacter(0); // Start with a base template
+            
+            // Basic Info
+            newChar.name = importedChar.name;
+            newChar.stats = importedChar.stats;
+            newChar.attributes = { // Map attributes from JSON
+                DEX: `d${importedChar.attributes.dexterity}`,
+                INS: `d${importedChar.attributes.insight}`,
+                MIG: `d${importedChar.attributes.might}`,
+                WLP: `d${importedChar.attributes.willpower}`
+            };
+            newChar.lvl = importedChar.lvl;
+            newChar.classes = importedChar.classes; // Keep the raw class/skill list for computation
+            newChar.commands = []; // We will rebuild this from the library
+            newChar.affinities = importedChar.affinities; // Keep raw affinities for computation
+
+            const skillCategory = { name: 'Skills', type: 'category', isCollapsed: false, items: [] };
+            const spellCategory = { name: 'Magic', type: 'category', isCollapsed: false, items: [] };
+
+            (importedChar.classes || []).forEach(c => {
+                const classData = FU_SKILL_LIBRARY.classes[c.name];
+                if (!classData) return;
+
+                (c.skills || []).forEach(s => {
+                    const skillData = classData.skills.find(libSkill => libSkill.name === s.skillName);
+                    if (skillData && skillData.type !== 'passive') {
+                        skillCategory.items.push(JSON.parse(JSON.stringify(skillData)));
+                    }
+                });
+
+                (c.spells || []).forEach(spell => {
+                    const spellData = FU_SKILL_LIBRARY.spells[spell.name];
+                     if (spellData) {
+                        spellCategory.items.push(JSON.parse(JSON.stringify(spellData)));
+                    }
+                });
+            });
+
+            if(skillCategory.items.length > 0) newChar.commands.push(skillCategory);
+            if(spellCategory.items.length > 0) newChar.commands.push(spellCategory);
+            
+            // You can add back default items, attacks etc. here if desired
+            newChar.commands.push({ name: 'Items', type: 'category', isCollapsed: false, items: [
+                { name: 'Remedy', type: 'item', targeting: '1 Target', upTo: false, doesNotStack: true, costType: 'IP', costValue: 3, effect: 'Recover 50 HP.', effects: [{type: 'healing', stat: 'HP', value: '50'}] },
+                { name: 'Elixir', type: 'item', targeting: '1 Target', upTo: false, doesNotStack: true, costType: 'IP', costValue: 3, effect: 'Recover 50 MP.', effects: [{type: 'healing', stat: 'MP', value: '50'}] },
+                { name: 'Tonic', type: 'item', targeting: '1 Target', upTo: false, doesNotStack: true, costType: 'IP', costValue: 2, effect: 'Cure one status effect.', effects: [{type: 'cureStatus', status: 'any'}] },
+                { name: 'Magic Tent', type: 'item', targeting: 'All Allies', upTo: false, doesNotStack: true, costType: 'IP', costValue: 4, effect: 'Fully rest.', effects: [] },
+            ] });
+
+            return newChar;
+        }
+
+        function computeAllCharacterStats() {
+            AppState.party.forEach(computeCharacterStats);
+        }
+
+        function computeCharacterStats(char) {
+            // Reset computed stats
+            char.computedAffinities = {};
+            const isCrisis = char.stats.hp.current <= Math.floor(char.stats.hp.max / 2);
+
+            // Add affinities from the imported JSON `affinities` object first.
+            if(char.affinities) { // This is from the imported JSON format
+                const affinityMap = { rs: 'Resistance', vu: 'Vulnerability', im: 'Immunity', ab: 'Absorption' };
+                const damageTypeMap = { wind: 'Air', bolt: 'Bolt', dark: 'Dark', earth: 'Earth', fire: 'Fire', ice: 'Ice', light: 'Light', poison: 'Poison', physical: 'Physical' };
+                for(const [type, value] of Object.entries(char.affinities)) {
+                    const mappedType = damageTypeMap[type];
+                    if(mappedType && affinityMap[value]) {
+                        char.computedAffinities[mappedType] = affinityMap[value];
+                    }
+                }
+            }
+
+            // Loop through character's classes and skills to apply passive effects
+            if (!char.classes) return; // Not an imported character with this structure
+
+            char.classes.forEach(c => {
+                const classData = FU_SKILL_LIBRARY.classes[c.name];
+                if (!classData) return;
+                
+                c.skills.forEach(s => {
+                    const skillData = classData.skills.find(libSkill => libSkill.name === s.skillName);
+                    if (skillData && skillData.type === 'passive') {
+                        (skillData.effects || []).forEach(effect => {
+                            // Check for conditions before applying the effect
+                            let canApply = true;
+                            if (effect.condition === 'crisis' && !isCrisis) {
+                                canApply = false;
+                            }
+                            
+                            if(canApply) {
+                                if (effect.type === 'addAffinity') {
+                                    char.computedAffinities[effect.damageType] = effect.affinity;
+                                }
+                                 if (effect.type === 'statBonus') {
+                                     // Placeholder for future stat bonuses like from Defensive Mastery
+                                 }
+                            }
+                        });
+                    }
+                });
             });
         }
         function getItemsFromPath(char, path) { let currentLevel = char.commands; for (const index of path) { if (currentLevel && currentLevel[index] && currentLevel[index].items) { currentLevel = currentLevel[index].items; } else if (currentLevel && currentLevel[index]) { return currentLevel; } else { return char.commands; } } return currentLevel; }
@@ -1584,10 +2134,18 @@
                         }).join('')}
                     </div>
                      <div class="grid grid-cols-2 gap-x-4 gap-y-1 items-center">
-                         <div class="flex items-center justify-between"><div><span>DEX<span class="text-gray-400">:</span></span><span class="die-value ${isAttributeAffected(char, 'DEX') ? 'text-red-500' : ''}">${getAttributeWithStatus(char, 'DEX')}</span></div>${renderStatusIcon(char, index, 'slow')}</div>
-                         <div class="flex items-center justify-between"><div><span>MIG<span class="text-gray-400">:</span></span><span class="die-value ${isAttributeAffected(char, 'MIG') ? 'text-red-500' : ''}">${getAttributeWithStatus(char, 'MIG')}</span></div>${renderStatusIcon(char, index, 'weak')}</div>
-                         <div class="flex items-center justify-between"><div><span>INS<span class="text-gray-400">:</span></span><span class="die-value ${isAttributeAffected(char, 'INS') ? 'text-red-500' : ''}">${getAttributeWithStatus(char, 'INS')}</span></div>${renderStatusIcon(char, index, 'dazed')}</div>
-                         <div class="flex items-center justify-between"><div><span>WLP<span class="text-gray-400">:</span></span><span class="die-value ${isAttributeAffected(char, 'WLP') ? 'text-red-500' : ''}">${getAttributeWithStatus(char, 'WLP')}</span></div>${renderStatusIcon(char, index, 'shaken')}</div>
+                         ${(() => {
+                             const dexInfo = getAttributeDisplayInfo(char, 'DEX');
+                             const migInfo = getAttributeDisplayInfo(char, 'MIG');
+                             const insInfo = getAttributeDisplayInfo(char, 'INS');
+                             const wlpInfo = getAttributeDisplayInfo(char, 'WLP');
+                             return `
+                                 <div class="flex items-center justify-between"><div><span>DEX<span class="text-gray-400">:</span></span><span class="die-value ${dexInfo.colorClass}">${dexInfo.die}</span></div>${renderStatusIcon(char, index, 'slow')}</div>
+                                 <div class="flex items-center justify-between"><div><span>MIG<span class="text-gray-400">:</span></span><span class="die-value ${migInfo.colorClass}">${migInfo.die}</span></div>${renderStatusIcon(char, index, 'weak')}</div>
+                                 <div class="flex items-center justify-between"><div><span>INS<span class="text-gray-400">:</span></span><span class="die-value ${insInfo.colorClass}">${insInfo.die}</span></div>${renderStatusIcon(char, index, 'dazed')}</div>
+                                 <div class="flex items-center justify-between"><div><span>WLP<span class="text-gray-400">:</span></span><span class="die-value ${wlpInfo.colorClass}">${wlpInfo.die}</span></div>${renderStatusIcon(char, index, 'shaken')}</div>
+                             `;
+                         })()}
                          <div class="flex items-center justify-center">${renderStatusIcon(char, index, 'enraged')}</div>
                          <div class="flex items-center justify-center">${renderStatusIcon(char, index, 'poisoned')}</div>
                      </div>
@@ -1595,8 +2153,33 @@
             }).join('');
         }
         function renderStatusIcon(char, charIndex, statusKey) { if (!statusKey || !STATUS_EFFECTS[statusKey]) return '<div></div>'; const status = STATUS_EFFECTS[statusKey]; const isStroked = ['slow', 'dazed', 'weak', 'shaken'].includes(statusKey); return `<div class="status-icon ${char.status[statusKey] ? 'active' : ''} ml-1" style="${char.status[statusKey] ? `background-color:${status.color};` : ''}" title="${status.name}" data-action="toggle-status" data-char-index="${charIndex}" data-status="${statusKey}"> <svg class="w-full h-full" ${isStroked ? 'fill="none" stroke="currentColor" stroke-width="1.5"' : 'fill="currentColor"'} viewBox="0 0 24 24"> <path ${isStroked ? 'stroke-linecap="round" stroke-linejoin="round"' : ''} d="${status.icon}" /> </svg> </div>`; }
-        function isAttributeAffected(char, attr) { return (char.status.slow && attr === 'DEX') || (char.status.dazed && attr === 'INS') || (char.status.weak && attr === 'MIG') || (char.status.shaken && attr === 'WLP') || (char.status.poisoned && (attr === 'MIG' || attr === 'WLP')) || (char.status.enraged && (attr === 'DEX' || attr === 'INS')); }
-        function getAttributeWithStatus(char, attr) { let penalty = 0; if (char.status.slow && attr === 'DEX') penalty++; if (char.status.dazed && attr === 'INS') penalty++; if (char.status.weak && attr === 'MIG') penalty++; if (char.status.shaken && attr === 'WLP') penalty++; if (char.status.poisoned && (attr === 'MIG' || attr === 'WLP')) penalty++; if (char.status.enraged && (attr === 'DEX' || attr === 'INS')) penalty++; const i = DICE.indexOf(char.attributes[attr]); return DICE[Math.max(0, i - penalty)]; }
+        
+        function getAttributeDisplayInfo(char, attr) {
+            let boostAmount = 0;
+            (char.temporaryEffects || []).filter(eff => eff.type === 'attributeModification' && eff.attribute === attr).forEach(eff => {
+                boostAmount += eff.amount;
+            });
+
+            let penaltyAmount = 0;
+            if (char.status.slow && attr === 'DEX') penaltyAmount++;
+            if (char.status.dazed && attr === 'INS') penaltyAmount++;
+            if (char.status.weak && attr === 'MIG') penaltyAmount++;
+            if (char.status.shaken && attr === 'WLP') penaltyAmount++;
+            if (char.status.poisoned && (attr === 'MIG' || attr === 'WLP')) penaltyAmount++;
+            if (char.status.enraged && (attr === 'DEX' || attr === 'INS')) penaltyAmount++;
+
+            const baseIndex = DICE.indexOf(char.attributes[attr]);
+            const finalIndex = Math.max(0, Math.min(DICE.length - 1, baseIndex + boostAmount - penaltyAmount));
+            const die = DICE[finalIndex];
+            
+            let colorClass = '';
+            if (boostAmount > 0 && penaltyAmount > 0) colorClass = 'text-orange-400';
+            else if (boostAmount > 0) colorClass = 'text-green-400';
+            else if (penaltyAmount > 0) colorClass = 'text-red-500';
+
+            return { die, colorClass };
+        }
+
         function formatCost(item) { if (!item.costType || item.costType === 'None') return ''; const costText = item.costType === '1/3 Current HP' ? '1/3 HP' : `${item.costValue} ${item.costType}`; let color = 'white'; switch (item.costType) { case 'HP': case '1/3 Current HP': color = 'var(--crisis-color)'; break; case 'MP': color = 'var(--mp-color)'; break; case 'IP': color = 'var(--ip-color)'; break; } return `<span style="color: ${color};">${costText}</span>`; }
         function setupDragAndDrop(charIndex) { const container = document.getElementById('command-editor-container'); if (!container) return; let draggedElement = null; container.addEventListener('dragstart', e => { const target = e.target.closest('.draggable'); if (!target || target.classList.contains('locked-item')) { e.preventDefault(); return; } draggedElement = target; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', target.dataset.path); setTimeout(() => target.classList.add('dragging'), 0); }); container.addEventListener('dragend', e => { if(draggedElement) { draggedElement.classList.remove('dragging'); draggedElement = null; } clearDragIndicators(); }); const clearDragIndicators = () => { document.querySelectorAll('.drop-indicator').forEach(el => el.style.display = 'none'); document.querySelectorAll('.drop-target-category').forEach(el => el.classList.remove('drop-target-category')); }; container.addEventListener('dragover', e => { e.preventDefault(); const dropTarget = e.target.closest('.draggable-container, .draggable, .drop-zone'); if (!dropTarget || !draggedElement) return; clearDragIndicators(); const rect = dropTarget.getBoundingClientRect(); const isCategory = dropTarget.dataset.type === 'category' || dropTarget.classList.contains('drop-zone'); if (isCategory && e.clientY > rect.top + rect.height * 0.25 && e.clientY < rect.top + rect.height * 0.75) { const draggableContent = dropTarget.classList.contains('draggable') ? dropTarget : dropTarget.querySelector('.draggable'); if(draggableContent) draggableContent.classList.add('drop-target-category'); } else { const container = dropTarget.closest('.draggable-container'); if(container && !container.querySelector('.locked-item')) { const indicator = container.querySelector('.drop-indicator'); if(indicator) indicator.style.display = 'block'; } } }); container.addEventListener('drop', e => { e.preventDefault(); e.stopPropagation(); clearDragIndicators(); const draggedPathStr = e.dataTransfer.getData('text/plain'); const dropTargetContainer = e.target.closest('.draggable-container, .drop-zone'); if (!dropTargetContainer || !draggedPathStr) return; let dropTargetEl; if (dropTargetContainer.classList.contains('drop-zone')) { dropTargetEl = dropTargetContainer; } else { dropTargetEl = dropTargetContainer.querySelector('.draggable'); } if (!dropTargetEl) return; const targetPathStr = dropTargetEl.dataset.path; if (draggedPathStr === targetPathStr) return; if (targetPathStr.startsWith(draggedPathStr) && targetPathStr.length > draggedPathStr.length) { return; } const rect = dropTargetEl.getBoundingClientRect(); const isCategory = dropTargetEl.dataset.type === 'category' || dropTargetEl.classList.contains('drop-zone'); const dropIntoCategory = isCategory && e.clientY > rect.top + rect.height * 0.25 && e.clientY < rect.top + rect.height * 0.75; handleDrop(charIndex, draggedPathStr, targetPathStr, dropIntoCategory); }); }
         function _getItemAndParentByPath(rootItems, path) { if (!path || path.length === 0) { return { parent: rootItems, item: null, index: -1 }; } let parentList = rootItems; let item = null; for (let i = 0; i < path.length; i++) { const index = path[i]; if (!parentList || !parentList[index]) { return { parent: null, item: null, index: -1 }; } if (i === path.length - 1) { item = parentList[index]; return { parent: parentList, item: item, index: index }; } parentList = parentList[index].items; } return { parent: null, item: null, index: -1 }; }
