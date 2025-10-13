@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fabula Ultima Party Tracker v5.6 (Alpha)</title>
+    <title>Fabula Ultima Party Tracker v5.7 (Alpha)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,6 +23,7 @@
             --text-yellow: #ffff00;
             --text-cyan: #00ffff;
             --hp-color: #32cd32;
+            --hp-temp-color: #90ee90;
             --mp-color: #4169e1;
             --ip-color: #ff8c00;
             --crisis-color: #ef4444;
@@ -74,7 +75,7 @@
         
         .progress-bar-container { background-color: #000; border: 2px solid var(--border-dark); height: 20px; width: 100%; position: relative; display: flex; align-items: center; justify-content: center; cursor: pointer; }
         .progress-bar { height: 100%; transition: width 0.3s ease-in-out; position: absolute; left: 0; top: 0; }
-        .progress-bar-text { z-index: 1; text-shadow: 1px 1px 2px black; font-size: 0.8rem; }
+        .progress-bar-text { z-index: 10; text-shadow: 1px 1px 2px black; font-size: 0.8rem; }
 
         .command-menu-header { padding-bottom: 0.5rem; flex-shrink: 0; }
         .beta-tab { padding: 0.5rem 1rem; border-bottom: 2px solid transparent; cursor: pointer; }
@@ -91,7 +92,7 @@
     <!-- Session Management UI -->
     <div id="session-container" class="h-screen w-screen p-4 flex justify-center items-center">
         <div class="jrpg-window p-6 w-full max-w-md text-center">
-            <h1 class="text-2xl text-yellow-300 mb-4">Fabula Ultima Party Tracker 5.6</h1>
+            <h1 class="text-2xl text-yellow-300 mb-4">Fabula Ultima Party Tracker 5.7</h1>
             <p class="mb-6">Join a collaborative online session or use in offline mode.</p>
             <div class="space-y-4">
                 <button data-action="create-party" class="jrpg-window !p-2 action-button w-full">Create New Online Party</button>
@@ -120,7 +121,7 @@
     </div>
 
     <script>
-    // F.U. Party Tracker v5.6 (Alpha)
+    // F.U. Party Tracker v5.7 (Alpha)
     window.onload = () => {
         // --- CORE SETUP & STATE ---
         const firebaseConfig = { apiKey: "AIzaSyD73IhU0asC807BKVif9t6U9hIryDJlLNY", authDomain: "f-u-party-tracker.firebaseapp.com", projectId: "f-u-party-tracker", storageBucket: "f-u-party-tracker.appspot.com", messagingSenderId: "375233304595", appId: "1:375233304595:web:c306cc40667f84b86987e6" };
@@ -227,16 +228,15 @@
         function listenToPartyChanges() {
             unsubscribeFromParty = db.collection('parties').doc(partyId).onSnapshot(doc => {
                 if (doc.exists) {
-                    if (LocalUIState.activeModal?.type === 'edit-character') {
-                         // If editing, only update the background data, don't re-render everything
-                         const cloudState = doc.data();
-                         AppState.party = cloudState.party || [];
-                         AppState.settings = cloudState.settings || { backgroundUrl: '' };
-                         renderPartyStatusBar(); // Just update the background panels
+                    const hadModal = LocalUIState.activeModal?.type === 'edit-character';
+                    const cloudState = doc.data();
+                    AppState.party = cloudState.party || [];
+                    AppState.settings = cloudState.settings || { backgroundUrl: '' };
+                    
+                    if (hadModal) {
+                        // If editor is open, just refresh background panels. The editor manages its own state.
+                        renderPartyStatusBar();
                     } else {
-                        const cloudState = doc.data();
-                        AppState.party = cloudState.party || [];
-                        AppState.settings = cloudState.settings || { backgroundUrl: '' };
                         renderAll();
                     }
                 } else { alert("This party session has been deleted remotely."); leaveSession(true); }
@@ -306,10 +306,21 @@
                     <div class="space-y-1 mt-2">
                         ${['hp', 'mp', 'ip'].map(stat => {
                             const s = char.stats[stat];
-                            const percent = s.max > 0 ? (s.current / s.max) * 100 : 0;
+                            const basePercent = s.max > 0 ? (s.current / s.max) * 100 : 0;
+                            const cappedBasePercent = Math.min(basePercent, 100);
+                            const tempPercent = s.current > s.max ? ((s.current - s.max) / s.max) * 100 : 0;
                             const colorVar = (stat === 'hp' && isCrisis) ? '--crisis-color' : `--${stat}-color`;
+
+                            if (stat === 'hp' && s.current > s.max) {
+                                return `<div class="progress-bar-container" data-action="adjust-stat" data-char-index="${index}" data-stat="hp">
+                                    <div class="progress-bar" style="width:${cappedBasePercent + tempPercent}%; background-color: var(--hp-temp-color); z-index: 1;"></div>
+                                    <div class="progress-bar" style="width:${cappedBasePercent}%; background-color: var(${colorVar}); z-index: 2;"></div>
+                                    <span class="progress-bar-text">${s.current}/${s.max}</span>
+                                </div>`;
+                            }
+                            
                             return `<div class="progress-bar-container" data-action="adjust-stat" data-char-index="${index}" data-stat="${stat}">
-                                    <div class="progress-bar" style="width:${percent}%; background-color: var(${colorVar});"></div>
+                                    <div class="progress-bar" style="width:${cappedBasePercent}%; background-color: var(${colorVar});"></div>
                                     <span class="progress-bar-text">${s.current}/${s.max}</span>
                                 </div>`;
                         }).join('')}
@@ -370,7 +381,7 @@
              else if (type === 'edit-character') { content = getEditCharacterModalContent(data); modalClass += ' max-w-2xl'; }
              else if (type === 'adjust-stat') content = getAdjustStatModalContent(data);
              else if (type === 'confirm') content = getConfirmModalContent(data);
-             else if (type === 'beta-testing') { content = getBetaTestingModalContent(); modalClass += ' max-w-4xl'; }
+             else if (type === 'beta-testing') { content = getBetaTestingModalContent(data); modalClass += ' max-w-4xl'; }
              else content = `<div><p>Modal: ${type}</p><button data-action="close-modal">Close</button></div>`;
              
              container.innerHTML = `<div class="modal-backdrop" data-action="close-modal-backdrop"><div class="${modalClass}" style="${modalStyle}">${content}</div></div>`;
@@ -681,3 +692,4 @@
     </script>
 </body>
 </html>
+
