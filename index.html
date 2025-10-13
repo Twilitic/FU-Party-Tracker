@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fabula Ultima Party Tracker v5.4 (Alpha)</title>
+    <title>Fabula Ultima Party Tracker v5.5 (Alpha)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -89,7 +89,7 @@
     <!-- Session Management UI -->
     <div id="session-container" class="h-screen w-screen p-4 flex justify-center items-center">
         <div class="jrpg-window p-6 w-full max-w-md text-center">
-            <h1 class="text-2xl text-yellow-300 mb-4">Fabula Ultima Party Tracker 5.4</h1>
+            <h1 class="text-2xl text-yellow-300 mb-4">Fabula Ultima Party Tracker 5.5</h1>
             <p class="mb-6">Join a collaborative online session or use in offline mode.</p>
             <div class="space-y-4">
                 <button data-action="create-party" class="jrpg-window !p-2 action-button w-full">Create New Online Party</button>
@@ -118,7 +118,7 @@
     </div>
 
     <script>
-    // F.U. Party Tracker v5.4 (Alpha)
+    // F.U. Party Tracker v5.5 (Alpha)
     window.onload = () => {
         // --- CORE SETUP & STATE ---
         const firebaseConfig = { apiKey: "AIzaSyD73IhU0asC807BKVif9t6U9hIryDJlLNY", authDomain: "f-u-party-tracker.firebaseapp.com", projectId: "f-u-party-tracker", storageBucket: "f-u-party-tracker.appspot.com", messagingSenderId: "375233304595", appId: "1:375233304595:web:c306cc40667f84b86987e6" };
@@ -391,14 +391,19 @@
             return `
             <div class="h-full flex flex-col">
                 <h2 class="text-yellow-300 text-xl mb-4">Edit ${char.name}</h2>
-                <div class="flex-grow overflow-y-auto pr-2 scrollable-menu grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="flex-grow overflow-y-auto pr-2 scrollable-menu grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                     <!-- Left Column -->
                     <div class="space-y-4">
-                        <div><label>Name:</label><input type="text" data-path="name" value="${char.name}"></div>
-                        <div class="flex items-end gap-2">
-                            <div class="flex-grow"><label>Portrait URL:</label><input type="text" data-path="portrait" value="${char.portrait}"></div>
-                            <button class="jrpg-window !p-2 action-button" data-action="upload-portrait" data-char-index="${charIndex}">Upload</button>
-                            <input type="file" class="hidden" id="portrait-upload-${charIndex}" accept="image/*">
+                        <div class="flex gap-4">
+                            <img src="${char.portrait}" class="w-24 h-24 object-cover border-2 border-white flex-shrink-0" onerror="this.src='https://placehold.co/100x100/1a1a5c/ffffff?text=ERR'">
+                            <div class="space-y-2 flex-grow">
+                                <div><label>Name:</label><input type="text" data-path="name" value="${char.name}"></div>
+                                <div class="flex items-end gap-2">
+                                    <div class="flex-grow"><label>Portrait URL:</label><input type="text" data-path="portrait" value="${char.portrait}"></div>
+                                    <button class="jrpg-window !p-2 action-button" data-action="upload-portrait" data-char-index="${charIndex}">Upload</button>
+                                    <input type="file" class="hidden" id="portrait-upload-${charIndex}" accept="image/*">
+                                </div>
+                            </div>
                         </div>
                         <div class="grid grid-cols-2 gap-2">
                             <div><label>Current HP:</label><input type="number" data-path="stats.hp.current" value="${char.stats.hp.current}"></div>
@@ -533,7 +538,7 @@
                 'open-system-menu': () => { LocalUIState.activeModal = {type: 'system-menu'}; renderModal(); },
                 'toggle-edit-mode': () => { LocalUIState.isEditMode = !LocalUIState.isEditMode; renderAll(); },
                 'edit-character': () => { LocalUIState.activeModal = {type: 'edit-character', data: {char: AppState.party[cIndex], charIndex: cIndex}}; renderModal(); },
-                'close-modal': () => { LocalUIState.activeModal = null; renderModal(); },
+                'close-modal': () => { LocalUIState.activeModal = null; renderAll(); },
                 'close-modal-backdrop': () => { if (e.target.classList.contains('modal-backdrop') && !['adjust-stat'].includes(LocalUIState.activeModal?.type)) actions['close-modal'](); },
                 'close-admin-panel': () => location.reload(),
                 'toggle-status': () => { AppState.party[cIndex].status[data.status] = !AppState.party[cIndex].status[data.status]; if (isOfflineMode) { renderAll(); } saveData(); },
@@ -575,15 +580,17 @@
                     if (!e.target.files[0]) return;
                     resizeImage(e.target.files[0], 150, 150, (dataUrl) => {
                         AppState.party[charIndex].portrait = dataUrl;
-                        if(isOfflineMode) renderAll();
                         saveData();
-                        modalDiv.querySelector('[data-path="portrait"]').value = 'Uploaded Image';
+                        // Manually update the UI without a full re-render
+                        modalDiv.querySelector('img').src = dataUrl;
+                        if (isOfflineMode) renderPartyStatusBar(); 
                     });
                 });
 
-                modalDiv.addEventListener('input', e => {
+                modalDiv.addEventListener('change', e => {
                     const target = e.target.closest('[data-path]');
                     if(!target) return;
+                    
                     const path = target.dataset.path;
                     let value = target.type === 'number' ? parseInt(target.value) || 0 : (target.type === 'checkbox' ? target.checked : target.value);
                     
@@ -596,7 +603,13 @@
                         const input = modalDiv.querySelector(`[data-path="${isDef ? 'def' : 'mdef'}"]`);
                         if(input) input.disabled = !value;
                     }
-                    if(isOfflineMode) renderAll();
+                    
+                    calculateDefenses(AppState.party[charIndex]);
+
+                    // Refresh only the necessary parts
+                    if (isOfflineMode) {
+                        renderPartyStatusBar();
+                    }
                     saveData();
                 });
                 
@@ -608,10 +621,10 @@
                         if (importedChar) {
                             importedChar.id = AppState.party[charIndex].id;
                             AppState.party[charIndex] = importedChar;
-                            if(isOfflineMode) renderAll();
                             saveData();
                             playSound('confirm');
                             LocalUIState.activeModal = null;
+                            renderAll();
                         }
                     };
                     reader.readAsText(e.target.files[0]);
