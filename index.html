@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fabula Ultima Party Tracker v5.2 (Alpha)</title>
+    <title>Fabula Ultima Party Tracker v5.4 (Alpha)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26,6 +26,7 @@
             --mp-color: #4169e1;
             --ip-color: #ff8c00;
             --crisis-color: #ef4444;
+            font-size: 100%; /* Base for UI Scale */
         }
 
         html, body { height: 100%; overflow: hidden; }
@@ -46,12 +47,14 @@
             box-shadow: 0 0 0 4px #000;
         }
 
-        .action-button:hover, .menu-item:hover { background-color: #3a3a8c; cursor: pointer; }
+        .action-button:hover, .menu-item:hover, .breadcrumb-item:hover { background-color: #3a3a8c; cursor: pointer; }
+        .breadcrumb-item { cursor: pointer; }
         .modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 100; }
         .scrollable-menu::-webkit-scrollbar { width: 8px; }
         .scrollable-menu::-webkit-scrollbar-track { background: #000; }
         .scrollable-menu::-webkit-scrollbar-thumb { background-color: var(--border-dark); border: 2px solid var(--border-light); }
         input, select, textarea { background-color: #000; border: 2px solid var(--border-light); color: white; padding: 0.25rem; font-family: 'Share Tech Mono', monospace; width: 100%; }
+        input[type="checkbox"] { width: auto; }
         
         #app-container { display: flex; flex-direction: column; height: 100vh; }
         #main-view { flex-grow: 1; display: grid; gap: 1rem; padding: 1rem; min-height: 0; }
@@ -72,6 +75,8 @@
         .progress-bar-container { background-color: #000; border: 2px solid var(--border-dark); height: 20px; width: 100%; position: relative; display: flex; align-items: center; justify-content: center; cursor: pointer; }
         .progress-bar { height: 100%; transition: width 0.3s ease-in-out; position: absolute; left: 0; top: 0; }
         .progress-bar-text { z-index: 1; text-shadow: 1px 1px 2px black; font-size: 0.8rem; }
+
+        .command-menu-header { padding-bottom: 0.5rem; flex-shrink: 0; }
         
         @media (max-width: 1024px) {
             #main-view { grid-template-columns: 1fr; }
@@ -84,13 +89,13 @@
     <!-- Session Management UI -->
     <div id="session-container" class="h-screen w-screen p-4 flex justify-center items-center">
         <div class="jrpg-window p-6 w-full max-w-md text-center">
-            <h1 class="text-2xl text-yellow-300 mb-4">Fabula Ultima Party Tracker 5.2</h1>
+            <h1 class="text-2xl text-yellow-300 mb-4">Fabula Ultima Party Tracker 5.4</h1>
             <p class="mb-6">Join a collaborative online session or use in offline mode.</p>
             <div class="space-y-4">
-                <button id="create-party-btn" class="jrpg-window !p-2 action-button w-full">Create New Online Party</button>
+                <button data-action="create-party" class="jrpg-window !p-2 action-button w-full">Create New Online Party</button>
                 <input type="text" id="party-id-input" placeholder="Enter Party ID" class="text-center">
-                <button id="join-party-btn" class="jrpg-window !p-2 action-button w-full">Join Online Party</button>
-                <button id="offline-mode-btn" class="jrpg-window !p-2 action-button w-full bg-gray-700">Use Offline Mode</button>
+                <button data-action="join-party" class="jrpg-window !p-2 action-button w-full">Join Online Party</button>
+                <button data-action="offline-mode" class="jrpg-window !p-2 action-button w-full bg-gray-700">Use Offline Mode</button>
             </div>
             <p id="session-error" class="text-red-500 mt-4 h-4"></p>
         </div>
@@ -105,7 +110,7 @@
             <div id="main-command-area"></div>
         </div>
         <div id="party-status-bar"></div>
-        <div class="absolute top-4 right-4 flex gap-2">
+        <div class="absolute top-4 right-4 flex gap-2 z-50">
              <button data-action="toggle-edit-mode" id="edit-mode-btn" class="jrpg-window !p-2 action-button">Edit</button>
              <button data-action="open-system-menu" class="jrpg-window !p-2 action-button">System</button>
         </div>
@@ -113,7 +118,7 @@
     </div>
 
     <script>
-    // F.U. Party Tracker v5.2 (Alpha)
+    // F.U. Party Tracker v5.4 (Alpha)
     window.onload = () => {
         // --- CORE SETUP & STATE ---
         const firebaseConfig = { apiKey: "AIzaSyD73IhU0asC807BKVif9t6U9hIryDJlLNY", authDomain: "f-u-party-tracker.firebaseapp.com", projectId: "f-u-party-tracker", storageBucket: "f-u-party-tracker.appspot.com", messagingSenderId: "375233304595", appId: "1:375233304595:web:c306cc40667f84b86987e6" };
@@ -122,7 +127,7 @@
         let partyId = null, isOfflineMode = false, unsubscribeFromParty = null, saveDataTimeout = null;
 
         const AppState = { party: [], settings: { backgroundUrl: '' } };
-        const LocalUIState = { isEditMode: false, activeModal: null, focusedCharacterIndex: 0, activeMenuPaths: [ [], [], [], [] ], settings: { volume: 0.5, muted: false, commandMenuSide: 'right' } };
+        const LocalUIState = { isEditMode: false, activeModal: null, focusedCharacterIndex: 0, activeMenuPaths: [ [], [], [], [] ], settings: { volume: 0.5, muted: false, commandMenuSide: 'right', uiScale: 100 } };
         
         // --- CONSTANTS ---
         const STATUS_EFFECTS = {
@@ -141,12 +146,9 @@
 
         function init() {
             document.body.addEventListener('click', initializeSounds, { once: true });
-            document.getElementById('create-party-btn').addEventListener('click', createParty);
-            document.getElementById('join-party-btn').addEventListener('click', joinParty);
-            document.getElementById('offline-mode-btn').addEventListener('click', startOfflineMode);
             document.body.addEventListener('click', handleGlobalClick);
             const lastPartyId = localStorage.getItem('fabulaUltimaLastPartyId');
-            if (lastPartyId) { document.getElementById('party-id-input').value = lastPartyId; joinParty(true); }
+            if (lastPartyId) { document.getElementById('party-id-input').value = lastPartyId; }
         }
         
         function transitionToApp() {
@@ -168,7 +170,7 @@
             transitionToApp();
         }
 
-        async function joinParty(isAutoRejoin = false) {
+        async function joinParty() {
             const inputId = document.getElementById('party-id-input').value.trim().toLowerCase();
             if (!inputId) { document.getElementById('session-error').textContent = "Please enter a Party ID."; return; }
             if (inputId === 'ooble-loodle bloodle-doo') return showAdminPanel();
@@ -183,7 +185,7 @@
                     transitionToApp();
                 } else {
                     document.getElementById('session-error').textContent = "Party ID not found.";
-                    if (isAutoRejoin) localStorage.removeItem('fabulaUltimaLastPartyId');
+                    localStorage.removeItem('fabulaUltimaLastPartyId');
                 }
             } catch (error) { console.error("Error joining party:", error); document.getElementById('session-error').textContent = "Connection error."; }
         }
@@ -215,8 +217,8 @@
             if (!partyId) return;
             clearTimeout(saveDataTimeout);
             saveDataTimeout = setTimeout(() => {
-                const { party, settings } = AppState;
-                db.collection('parties').doc(partyId).set({ party, settings }, { merge: true }).catch(e => console.error("Firestore save error:", e));
+                const cleanState = JSON.parse(JSON.stringify(AppState)); // Deep copy to remove undefined values
+                db.collection('parties').doc(partyId).set({ party: cleanState.party, settings: cleanState.settings }, { merge: true }).catch(e => console.error("Firestore save error:", e));
             }, 300);
         }
 
@@ -237,11 +239,32 @@
             if (forceReload) location.reload();
         }
         
-        function createDefaultCharacter(id) { return { id, name: `Hero ${id + 1}`, portrait: `https://placehold.co/100x100/1a1a5c/ffffff?text=P${id + 1}`, stats: { hp: { current: 50, max: 50 }, mp: { current: 20, max: 20 }, ip: { current: 6, max: 6 } }, def: 10, mdef: 10, attributes: { DEX: 'd6', INS: 'd6', MIG: 'd6', WLP: 'd6' }, status: Object.keys(STATUS_EFFECTS).reduce((acc, key) => ({...acc, [key]: false}), {}), resistances: {}, temporaryEffects: [], equipment: { armor: [], shields: [] }, commands: [ { name: 'Attack', type: 'category', isCollapsed: false, items: [{ name: 'Basic Attack', type: 'item', costType: 'None', costValue: 0, targeting: '1 Target', description: 'A standard physical attack.', effects: [{type: 'damage', formula: 'MIG', resource: 'HP', damageType: 'physical'}] }] }, { name: 'Items', type: 'category', isCollapsed: false, items: [ { name: 'Remedy', type: 'item', costType: 'IP', costValue: 3, targeting: '1 Target', description: 'Recover 50 HP.', effects: [{type: 'heal', formula: '50', resource: 'HP'}]}, { name: 'Elixir', type: 'item', costType: 'IP', costValue: 3, targeting: '1 Target', description: 'Recover 50 MP.', effects: [{type: 'heal', formula: '50', resource: 'MP'}]}, { name: 'Tonic', type: 'item', costType: 'IP', costValue: 2, targeting: '1 Target', description: 'Cure one status effect.', effects: [{type: 'dispel', dispelType: 'status'}]}, { name: 'Magic Tent', type: 'item', costType: 'IP', costValue: 4, targeting: 'All Targets', description: 'Fully restore HP and MP, and cure all statuses for the party.', effects: [{type: 'heal', formula: '9999', resource: 'HP'}, {type: 'heal', formula: '9999', resource: 'MP'}, {type: 'dispel', dispelType: 'status'}]}, ] } ], customization: { nameColor: '#ffff00' } }; }
+        function createDefaultCharacter(id) { 
+            return { 
+                id, name: `Hero ${id + 1}`, portrait: `https://placehold.co/100x100/1a1a5c/ffffff?text=P${id + 1}`, 
+                stats: { hp: { current: 50, max: 50 }, mp: { current: 20, max: 20 }, ip: { current: 6, max: 6 } }, 
+                attributes: { DEX: 'd6', INS: 'd6', MIG: 'd6', WLP: 'd6' }, 
+                def: 0, mdef: 0, defModifier: 0, mdefModifier: 0, defOverride: false, mdefOverride: false,
+                status: Object.keys(STATUS_EFFECTS).reduce((acc, key) => ({...acc, [key]: false}), {}), 
+                resistances: {}, temporaryEffects: [], equipment: { armor: [], shields: [] }, 
+                commands: [ 
+                    { name: 'Attack', type: 'category', isCollapsed: false, items: [{ name: 'Basic Attack', type: 'item', costType: 'None', costValue: 0, targeting: '1 Target', description: 'A standard physical attack.', effects: [{type: 'damage', formula: 'MIG', resource: 'HP', damageType: 'physical'}] }] }, 
+                    { name: 'Items', type: 'category', isCollapsed: false, items: [ 
+                        { name: 'Remedy', type: 'item', costType: 'IP', costValue: 3, targeting: '1 Target', description: 'Recover 50 HP.', effects: [{type: 'heal', formula: '50', resource: 'HP'}]}, 
+                        { name: 'Elixir', type: 'item', costType: 'IP', costValue: 3, targeting: '1 Target', description: 'Recover 50 MP.', effects: [{type: 'heal', formula: '50', resource: 'MP'}]}, 
+                        { name: 'Tonic', type: 'item', costType: 'IP', costValue: 2, targeting: '1 Target', description: 'Cure one status effect.', effects: [{type: 'dispel', dispelType: 'status'}]}, 
+                        { name: 'Magic Tent', type: 'item', costType: 'IP', costValue: 4, targeting: 'All Targets', description: 'Fully restore HP and MP, and cure all statuses for the party.', effects: [{type: 'heal', formula: '9999', resource: 'HP'}, {type: 'heal', formula: '9999', resource: 'MP'}, {type: 'dispel', dispelType: 'status'}]}, 
+                    ] } 
+                ], 
+                customization: { nameColor: '#ffff00' } 
+            }; 
+        }
         function parseFultimatorJson(jsonString) { try { const data = JSON.parse(jsonString); if (data.dataType !== 'pc') throw new Error("Not a Fultimator PC file."); const newChar = createDefaultCharacter(0); newChar.name = data.name || 'Imported Hero'; newChar.portrait = data.info.imgurl || newChar.portrait; newChar.stats = { hp: data.stats.hp, mp: data.stats.mp, ip: data.stats.ip }; newChar.attributes = { DEX: FULTIMATOR_ATTRIBUTE_MAP[data.attributes.dexterity] || 'd6', INS: FULTIMATOR_ATTRIBUTE_MAP[data.attributes.insight] || 'd6', MIG: FULTIMATOR_ATTRIBUTE_MAP[data.attributes.might] || 'd6', WLP: FULTIMATOR_ATTRIBUTE_MAP[data.attributes.willpower] || 'd6' }; newChar.resistances = {}; if (data.affinities) { for (const [type, value] of Object.entries(data.affinities)) { if (FULTIMATOR_AFFINITY_MAP[value]) newChar.resistances[type] = FULTIMATOR_AFFINITY_MAP[value]; } } let totalDef = 0, totalMdef = 0; const equippedArmor = data.armor?.filter(a => a.isEquipped) || []; const equippedShields = data.shields?.filter(s => s.isEquipped) || []; newChar.equipment = { armor: equippedArmor, shields: equippedShields }; [...equippedArmor, ...equippedShields].forEach(item => { totalDef += (item.def || 0); totalMdef += (item.mdef || 0); }); newChar.def = totalDef; newChar.mdef = totalMdef; newChar.commands = (data.classes || []).map(cls => ({ name: cls.name, type: 'category', isCollapsed: false, items: (cls.spells || []).concat(cls.skills || []).map(s => ({ name: s.name || s.skillName, type: 'item', costType: s.mp ? 'MP' : (s.ip ? 'IP' : 'None'), costValue: s.mp || s.ip || 0, targeting: s.maxTargets > 1 ? `${s.maxTargets} Targets` : '1 Target', description: s.description, effects: parseDescriptionForEffects(s.description) })) })).filter(cat => cat.items.length > 0); return newChar; } catch (error) { console.error("Fultimator Parse Error:", error); playSound('error'); return null; } }
         function parseDescriptionForEffects(desc) { if (!desc) return []; const effects = []; const cleanDesc = desc.replace(/<\/?strong>/g, ''); const damageRegex = /【([^】]+)】\s*(\w+)\s*damage/g; let match; while ((match = damageRegex.exec(cleanDesc)) !== null) { effects.push({ type: 'damage', formula: match[1].replace(/\s/g, ''), damageType: match[2].toLowerCase(), resource: 'HP', ignoresResistance: cleanDesc.toLowerCase().includes('ignores resistances') }); } if (effects.length === 0) effects.push({ type: 'misc', description: desc }); return effects; }
 
         function renderAll() {
+            if (document.getElementById('app-container').classList.contains('hidden')) return;
+            document.documentElement.style.fontSize = `${LocalUIState.settings.uiScale}%`;
             if (!AppState.party || AppState.party.length === 0) return;
             document.body.style.backgroundImage = AppState.settings.backgroundUrl ? `url('${AppState.settings.backgroundUrl}')` : '';
             document.getElementById('main-view').className = `flex-grow grid gap-4 p-4 min-h-0 menu-${LocalUIState.settings.commandMenuSide}`;
@@ -253,13 +276,14 @@
 
         function renderPartyStatusBar() {
             document.getElementById('party-status-bar').innerHTML = AppState.party.map((char, index) => {
+                calculateDefenses(char);
                 const isFocused = index === LocalUIState.focusedCharacterIndex;
                 const isCrisis = char.stats.hp.current <= Math.floor(char.stats.hp.max / 2);
                 
                 return `
                 <div class="jrpg-window p-2 status-panel-compact ${isFocused ? 'focused' : ''}" data-action="set-focus" data-char-index="${index}">
                     <div class="flex gap-2 items-center">
-                        <img src="${char.portrait}" class="w-12 h-12 object-cover border-2 border-white flex-shrink-0">
+                        <img src="${char.portrait}" class="w-12 h-12 object-cover border-2 border-white flex-shrink-0" onerror="this.src='https://placehold.co/100x100/1a1a5c/ffffff?text=ERR'">
                         <div class="flex-grow min-w-0">
                             <h3 class="text-lg truncate" style="color:${char.customization.nameColor};">${char.name}</h3>
                             <div class="text-sm">DEF: ${char.def} | M.DEF: ${char.mdef}</div>
@@ -281,10 +305,13 @@
                         }).join('')}
                     </div>
                     <div class="grid grid-cols-2 gap-x-4 text-sm mt-1">
-                        ${ATTRIBUTES.map(attr => `<div class="flex items-center justify-between">
-                                <span>${attr}: <span class="${isAttributeAffected(char, attr) ? 'text-red-500' : ''}">${getAttributeWithStatus(char, attr)}</span></span>
+                        ${ATTRIBUTES.map(attr => {
+                             const { die, colorClass } = getAttributeDisplayInfo(char, attr);
+                             return `<div class="flex items-center justify-between">
+                                <span>${attr}: <span class="${colorClass}">${die}</span></span>
                                 ${renderStatusIcon(char, index, Object.keys(STATUS_EFFECTS).find(k => STATUS_EFFECTS[k].attr === attr))}
-                            </div>`).join('')}
+                            </div>`
+                        }).join('')}
                     </div>
                 </div>`;
             }).join('');
@@ -298,12 +325,12 @@
             const path = LocalUIState.activeMenuPaths[LocalUIState.focusedCharacterIndex];
             const items = getItemsFromPath(char, path);
             
-            const namePart = `<span class="breadcrumb-item" data-action="go-to-path" data-path="">${char.name}</span>`;
+            const namePart = `<span class="breadcrumb-item" data-action="go-to-path">${char.name}</span>`;
             let breadcrumbs = namePart; // Placeholder
             
             container.innerHTML = `
                 <div class="jrpg-window p-4 h-full flex flex-col">
-                    <h2 class="text-2xl text-yellow-300 mb-2 truncate">${breadcrumbs}</h2>
+                    <h2 class="text-2xl text-yellow-300 mb-2 truncate command-menu-header">${breadcrumbs}</h2>
                     <div class="flex-grow overflow-y-auto scrollable-menu pr-2">
                         ${path.length === 0 && LocalUIState.isEditMode ? `<div class="p-2 text-xl menu-item text-green-400" data-action="edit-character" data-char-index="${LocalUIState.focusedCharacterIndex}">..Edit Character</div>` : ''}
                         ${items.map((item, itemIndex) => {
@@ -330,7 +357,7 @@
 
              if (type === 'admin-panel') { content = getAdminPanelContent(data); modalClass += ' max-w-xl'; }
              else if (type === 'system-menu') content = getSystemMenuContent();
-             else if (type === 'edit-character') { content = getEditCharacterModalContent(data); modalClass += ' max-w-lg'; }
+             else if (type === 'edit-character') { content = getEditCharacterModalContent(data); modalClass += ' max-w-2xl'; }
              else if (type === 'adjust-stat') content = getAdjustStatModalContent(data);
              else if (type === 'confirm') content = getConfirmModalContent(data);
              else content = `<div><p>Modal: ${type}</p><button data-action="close-modal">Close</button></div>`;
@@ -339,12 +366,12 @@
              addModalEventListeners(type, data);
         }
         
-        function getConfirmModalContent({ title, message, confirmAction, confirmText, confirmClass }) {
+        function getConfirmModalContent({ title, message, confirmAction, confirmText, confirmClass, partyId }) {
              return `
                 <h2 class="${confirmClass || 'text-yellow-300'} text-lg mb-4">${title}</h2>
                 <p class="mb-4 text-center">${message}</p>
                 <div class="flex justify-around mt-6">
-                    <button class="jrpg-window !p-2 action-button ${confirmClass ? `bg-${confirmClass.split('-')[1]}-800` : ''}" data-action="${confirmAction}">${confirmText}</button>
+                    <button class="jrpg-window !p-2 action-button ${confirmClass ? `bg-${confirmClass.split('-')[1]}-800` : ''}" data-action="${confirmAction}" ${partyId ? `data-party-id="${partyId}"` : ''}>${confirmText}</button>
                     <button class="jrpg-window !p-2 action-button" data-action="close-modal">Cancel</button>
                 </div>`;
         }
@@ -359,23 +386,83 @@
                 </div>`;
         }
 
-        function getAdminPanelContent({ isLoading, sessions, error }) { let listContent; if (isLoading) listContent = `<p>Loading...</p>`; else if (error) listContent = `<p class="text-red-500">${error}</p>`; else listContent = sessions.map(s => ` <div class="bg-black/20 p-2 flex justify-between items-center"> <div> <p class="font-bold">${s.id}</p> <p class="text-sm text-gray-400">${s.party.map(p=>p.name).join(', ')}</p> </div> <div class="flex gap-2"> <button class="jrpg-window !p-1 action-button" data-action="admin-join" data-party-id="${s.id}">Join</button> <button class="jrpg-window !p-1 action-button bg-red-800" data-action="admin-delete" data-party-id="${s.id}">Del</button> </div> </div> `).join(''); return ` <h2 class="text-yellow-300 text-xl mb-4">Admin Panel</h2> <div class="space-y-2 max-h-96 overflow-y-auto scrollable-menu pr-2">${listContent}</div> <div class="mt-4 text-center"><button class="jrpg-window !p-2 action-button" data-action="close-admin-panel">Close & Reload</button></div>`; }
-        function getEditCharacterModalContent({ char, charIndex }) { return ` <h2 class="text-yellow-300 text-xl mb-4">Edit ${char.name}</h2> <p class="mb-4">Character editor is a work in progress.</p> <button class="jrpg-window !p-2 action-button w-full" data-action="import-fultimator" data-char-index="${charIndex}">Import Fultimator JSON</button> <input type="file" class="hidden" id="fultimator-import-${charIndex}" accept=".json"> <div class="mt-4 text-center"><button class="jrpg-window !p-2 action-button" data-action="close-modal">Close</button></div>`; }
+        function getAdminPanelContent({ isLoading, sessions, error }) { let listContent; if (isLoading) listContent = `<p>Loading...</p>`; else if (error) listContent = `<p class="text-red-500">${error}</p>`; else listContent = sessions.map(s => ` <div class="bg-black/20 p-2 flex justify-between items-center"> <div> <p class="font-bold">${s.id}</p> <p class="text-sm text-gray-400">${s.party.map(p=>p.name).join(', ')}</p> </div> <div class="flex gap-2"> <button class="jrpg-window !p-1 action-button" data-action="admin-join" data-party-id="${s.id}">Join</button> <button class="jrpg-window !p-1 action-button bg-red-800" data-action="admin-delete-prompt" data-party-id="${s.id}">Del</button> </div> </div> `).join(''); return ` <h2 class="text-yellow-300 text-xl mb-4">Admin Panel</h2> <div class="space-y-2 max-h-96 overflow-y-auto scrollable-menu pr-2">${listContent}</div> <div class="mt-4 text-center"><button class="jrpg-window !p-2 action-button" data-action="close-admin-panel">Close & Reload</button></div>`; }
+        function getEditCharacterModalContent({ char, charIndex }) { 
+            return `
+            <div class="h-full flex flex-col">
+                <h2 class="text-yellow-300 text-xl mb-4">Edit ${char.name}</h2>
+                <div class="flex-grow overflow-y-auto pr-2 scrollable-menu grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Left Column -->
+                    <div class="space-y-4">
+                        <div><label>Name:</label><input type="text" data-path="name" value="${char.name}"></div>
+                        <div class="flex items-end gap-2">
+                            <div class="flex-grow"><label>Portrait URL:</label><input type="text" data-path="portrait" value="${char.portrait}"></div>
+                            <button class="jrpg-window !p-2 action-button" data-action="upload-portrait" data-char-index="${charIndex}">Upload</button>
+                            <input type="file" class="hidden" id="portrait-upload-${charIndex}" accept="image/*">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><label>Current HP:</label><input type="number" data-path="stats.hp.current" value="${char.stats.hp.current}"></div>
+                            <div><label>Max HP:</label><input type="number" data-path="stats.hp.max" value="${char.stats.hp.max}"></div>
+                            <div><label>Current MP:</label><input type="number" data-path="stats.mp.current" value="${char.stats.mp.current}"></div>
+                            <div><label>Max MP:</label><input type="number" data-path="stats.mp.max" value="${char.stats.mp.max}"></div>
+                            <div><label>Current IP:</label><input type="number" data-path="stats.ip.current" value="${char.stats.ip.current}"></div>
+                            <div><label>Max IP:</label><input type="number" data-path="stats.ip.max" value="${char.stats.ip.max}"></div>
+                        </div>
+                        <button class="jrpg-window !p-2 action-button w-full" data-action="import-fultimator" data-char-index="${charIndex}">Import Fultimator JSON</button>
+                        <input type="file" class="hidden" id="fultimator-import-${charIndex}" accept=".json">
+                    </div>
+                    <!-- Right Column -->
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-2">
+                            ${ATTRIBUTES.map(attr => `<div><label>${attr}:</label><select data-path="attributes.${attr}">${DICE.map(d => `<option value="${d}" ${char.attributes[attr] === d ? 'selected' : ''}>${d}</option>`).join('')}</select></div>`).join('')}
+                        </div>
+                        <fieldset class="border-2 border-dashed border-gray-600 p-2">
+                            <legend class="px-1">Defense</legend>
+                             <div class="grid grid-cols-2 gap-2">
+                                <div><label>DEF Mod:</label><input type="number" data-path="defModifier" value="${char.defModifier || 0}"></div>
+                                <div><label>M.DEF Mod:</label><input type="number" data-path="mdefModifier" value="${char.mdefModifier || 0}"></div>
+                                <div class="flex items-center gap-2"><input id="def-override-cb" type="checkbox" data-path="defOverride" ${char.defOverride ? 'checked' : ''}><label for="def-override-cb">Override DEF</label></div>
+                                <div class="flex items-center gap-2"><input id="mdef-override-cb" type="checkbox" data-path="mdefOverride" ${char.mdefOverride ? 'checked' : ''}><label for="mdef-override-cb">Override M.DEF</label></div>
+                                <div><label>Final DEF:</label><input type="number" data-path="def" value="${char.def}" ${!char.defOverride ? 'disabled' : ''}></div>
+                                <div><label>Final M.DEF:</label><input type="number" data-path="mdef" value="${char.mdef}" ${!char.mdefOverride ? 'disabled' : ''}></div>
+                            </div>
+                        </fieldset>
+                    </div>
+                </div>
+                <div class="mt-4 text-center flex-shrink-0"><button class="jrpg-window !p-2 action-button" data-action="close-modal">Close</button></div>
+            </div>
+            `; 
+        }
         function getSystemMenuContent() {
+            const inSession = partyId || isOfflineMode;
             return `
                 <h2 class="text-yellow-300 text-xl mb-4">System Settings</h2>
                 <div class="space-y-4">
+                    ${inSession ? `
+                    <fieldset class="border-2 border-dashed border-gray-600 p-2">
+                        <legend class="px-1">Session Info</legend>
+                        <div class="flex items-center gap-2">
+                            <input type="text" readonly value="${partyId || 'OFFLINE'}" class="bg-black/50">
+                            <button class="jrpg-window !p-2 action-button" data-action="copy-party-id" ${!partyId ? 'disabled' : ''}>Copy</button>
+                        </div>
+                    </fieldset>
                     <div>
                         <p class="mb-2 text-center">Command Menu Side</p>
                         <div class="flex justify-center gap-4">
                             <button data-action="set-menu-side" data-side="left" class="jrpg-window !p-2 action-button ${LocalUIState.settings.commandMenuSide === 'left' ? 'bg-blue-900' : ''}">Left</button>
                             <button data-action="set-menu-side" data-side="right" class="jrpg-window !p-2 action-button ${LocalUIState.settings.commandMenuSide === 'right' ? 'bg-blue-900' : ''}">Right</button>
                         </div>
+                    </div>` : ''}
+                    <div>
+                        <p class="mb-2 text-center">UI Scale</p>
+                        <div class="flex justify-center gap-2">
+                            ${[90, 100, 110, 125].map(s => `<button data-action="set-ui-scale" data-scale="${s}" class="jrpg-window !p-2 action-button ${LocalUIState.settings.uiScale == s ? 'bg-blue-900' : ''}">${s}%</button>`).join('')}
+                        </div>
                     </div>
-                    <div class="border-t-2 border-gray-500 pt-4 grid grid-cols-1 gap-2">
+                    ${inSession ? `<div class="border-t-2 border-gray-500 pt-4 grid grid-cols-1 gap-2">
                         <button class="jrpg-window !p-2 action-button bg-red-800 w-full" data-action="reset-offline-prompt">Reset Offline Data</button>
                         ${!isOfflineMode ? `<button class="jrpg-window !p-2 action-button bg-red-800 w-full" data-action="delete-party-prompt">Delete Party For Everyone</button>`: ''}
-                    </div>
+                    </div>` : ''}
                 </div>
                 <div class="mt-6 text-center"><button class="jrpg-window !p-2 action-button" data-action="close-modal">Close</button></div>
             `;
@@ -383,10 +470,45 @@
         
         // --- HELPERS ---
         function getItemsFromPath(char, path) { let c = char.commands; for (const i of path) { if (c?.[i]?.items) { c = c[i].items; } else return []; } return c; }
-        function getAttributeWithStatus(char, attr) { let p = 0; if (char.status.slow && attr === 'DEX') p++; if (char.status.dazed && attr === 'INS') p++; if (char.status.weak && attr === 'MIG') p++; if (char.status.shaken && attr === 'WLP') p++; if (char.status.poisoned && (attr === 'MIG' || attr === 'WLP')) p++; if (char.status.enraged && (attr === 'DEX' || attr === 'INS')) p++; const i = DICE.indexOf(char.attributes[attr]); return DICE[Math.max(0, i - p)]; }
-        function isAttributeAffected(char, attr) { return char.attributes[attr] !== getAttributeWithStatus(char, attr); }
+        
+        function calculateDefenses(char) {
+            if (!char.defOverride) {
+                const dexValue = parseInt(getAttributeDisplayInfo(char, 'DEX').die.slice(1));
+                char.def = dexValue + (char.defModifier || 0);
+            }
+            if (!char.mdefOverride) {
+                const insValue = parseInt(getAttributeDisplayInfo(char, 'INS').die.slice(1));
+                char.mdef = insValue + (char.mdefModifier || 0);
+            }
+        }
+        
+        function getAttributeDisplayInfo(char, attr) {
+            const baseDie = char.attributes[attr];
+            let penalty = 0;
+            if (char.status.slow && attr === 'DEX') penalty++; 
+            if (char.status.dazed && attr === 'INS') penalty++; 
+            if (char.status.weak && attr === 'MIG') penalty++; 
+            if (char.status.shaken && attr === 'WLP') penalty++; 
+            if (char.status.poisoned && (attr === 'MIG' || attr === 'WLP')) penalty++; 
+            if (char.status.enraged && (attr === 'DEX' || attr === 'INS')) penalty++;
+            
+            const baseIndex = DICE.indexOf(baseDie);
+            const finalIndex = Math.max(0, baseIndex - penalty);
+            const finalDie = DICE[finalIndex];
+
+            const isReduced = finalIndex < baseIndex;
+            const isAffectedAtMin = penalty > 0 && finalIndex === baseIndex && finalDie === 'd6';
+
+            let colorClass = '';
+            if (isReduced) colorClass = 'text-red-500';
+            else if (isAffectedAtMin) colorClass = 'text-gray-500';
+            
+            return { die: finalDie, colorClass };
+        }
+
         function renderStatusIcon(char, charIndex, statusKey) { if (!statusKey) return '<span></span>'; const status = STATUS_EFFECTS[statusKey]; return `<div class="status-icon ${char.status[statusKey] ? 'active' : ''}" style="${char.status[statusKey] ? `background-color:${status.color};` : ''}" title="${status.name}" data-action="toggle-status" data-char-index="${charIndex}" data-status="${statusKey}"><svg class="w-full h-full" fill="currentColor" viewBox="0 0 24 24"><path d="${status.icon}" /></svg></div>`; }
         function formatCost(item) { if (!item.costType || item.costType === 'None') return ''; const colorVar = `--${item.costType.toLowerCase()}-color`; return `<span style="color:var(${colorVar})">${item.costValue} ${item.costType}</span>`; }
+        function resizeImage(file, maxWidth, maxHeight, callback) { const reader = new FileReader(); reader.onload = (e) => { const img = new Image(); img.onload = () => { const canvas = document.createElement('canvas'); let width = img.width; let height = img.height; if (width > height) { if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; } } else { if (height > maxHeight) { width *= maxHeight / height; height = maxHeight; } } canvas.width = width; canvas.height = height; const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, width, height); callback(canvas.toDataURL('image/jpeg', 0.8)); }; img.src = e.target.result; }; reader.readAsDataURL(file); }
         function initializeSounds() { /* ... same as before ... */ }
         function playSound(sound) { /* ... same as before ... */ }
 
@@ -401,6 +523,9 @@
             const cIndex = parseInt(charIndex);
 
             const actions = {
+                'create-party': createParty,
+                'join-party': joinParty,
+                'offline-mode': startOfflineMode,
                 'set-focus': () => { if (LocalUIState.focusedCharacterIndex !== cIndex) { LocalUIState.focusedCharacterIndex = cIndex; renderAll(); } },
                 'open-menu': () => { LocalUIState.activeMenuPaths[cIndex].push(parseInt(data.itemIndex)); renderMainCommandArea(); },
                 'go-back': () => { LocalUIState.activeMenuPaths[cIndex].pop(); renderMainCommandArea(); },
@@ -409,33 +534,72 @@
                 'toggle-edit-mode': () => { LocalUIState.isEditMode = !LocalUIState.isEditMode; renderAll(); },
                 'edit-character': () => { LocalUIState.activeModal = {type: 'edit-character', data: {char: AppState.party[cIndex], charIndex: cIndex}}; renderModal(); },
                 'close-modal': () => { LocalUIState.activeModal = null; renderModal(); },
-                'close-modal-backdrop': () => { if (e.target.classList.contains('modal-backdrop')) actions['close-modal'](); },
+                'close-modal-backdrop': () => { if (e.target.classList.contains('modal-backdrop') && !['adjust-stat'].includes(LocalUIState.activeModal?.type)) actions['close-modal'](); },
                 'close-admin-panel': () => location.reload(),
-                'toggle-status': () => { AppState.party[cIndex].status[data.status] = !AppState.party[cIndex].status[data.status]; saveData(); },
+                'toggle-status': () => { AppState.party[cIndex].status[data.status] = !AppState.party[cIndex].status[data.status]; if (isOfflineMode) { renderAll(); } saveData(); },
                 'import-fultimator': () => document.getElementById(`fultimator-import-${cIndex}`).click(),
                 'admin-join': () => { document.getElementById('party-id-input').value = data.partyId; joinParty(); },
-                'admin-delete': async () => { await db.collection('parties').doc(data.partyId).delete(); showAdminPanel(); },
-                'set-menu-side': () => { LocalUIState.settings.commandMenuSide = data.side; renderAll(); if(isOfflineMode) saveData(); },
+                'admin-delete-prompt': () => { LocalUIState.activeModal = { type: 'confirm', data: { title: 'Admin Delete Session', message: `Permanently delete session: ${data.partyId}?`, confirmAction: 'confirm-admin-delete', confirmText: 'Delete', confirmClass: 'text-red-500', partyId: data.partyId } }; renderModal(); },
+                'confirm-admin-delete': async (target) => { await db.collection('parties').doc(target.dataset.partyId).delete(); showAdminPanel(); },
+                'set-menu-side': () => { LocalUIState.settings.commandMenuSide = data.side; if(isOfflineMode) saveData(); renderAll(); },
+                'set-ui-scale': () => { LocalUIState.settings.uiScale = parseInt(data.scale); if(isOfflineMode) saveData(); renderAll(); },
                 'adjust-stat': () => { const rect = target.getBoundingClientRect(); LocalUIState.activeModal = {type:'adjust-stat', data:{charIndex: cIndex, stat: data.stat}, position: {x: rect.left + rect.width / 2, y: rect.top}}; renderModal(); },
+                'upload-portrait': () => document.getElementById(`portrait-upload-${cIndex}`).click(),
                 'confirm-adjust-stat': () => {
                     const { charIndex, stat } = LocalUIState.activeModal.data;
                     const val = parseInt(document.getElementById('adjust-value').value) || 0;
                     const s = AppState.party[charIndex].stats[stat];
                     s.current = Math.min(s.max, Math.max(0, s.current + (data.op === 'add' ? val : -val)));
                     LocalUIState.activeModal = null;
+                    if (isOfflineMode) { renderAll(); }
                     saveData();
+                },
+                'copy-party-id': () => {
+                    const textToCopy = partyId;
+                    navigator.clipboard.writeText(textToCopy).then(() => playSound('confirm')).catch(() => playSound('error'));
                 },
                 'delete-party-prompt': () => { LocalUIState.activeModal = { type: 'confirm', data: { title: 'Delete Party', message: 'Permanently delete this party for everyone?', confirmAction: 'confirm-delete-party', confirmText: 'Delete Forever', confirmClass: 'text-red-500' } }; renderModal(); },
                 'confirm-delete-party': async () => { if(partyId) { await db.collection('parties').doc(partyId).delete(); } leaveSession(true); },
                 'reset-offline-prompt': () => { LocalUIState.activeModal = { type: 'confirm', data: { title: 'Reset Offline Data', message: 'Delete all offline data?', confirmAction: 'confirm-reset-offline', confirmText: 'Reset', confirmClass: 'text-red-500' } }; renderModal(); },
                 'confirm-reset-offline': () => { localStorage.removeItem('fabulaUltimaOfflineSheet'); location.reload(); },
             };
-            if (actions[action]) actions[action]();
+            if (actions[action]) actions[action](target);
         }
 
         function addModalEventListeners(type, data) {
             if (type === 'edit-character') {
                 const { charIndex } = data;
+                const modalDiv = document.querySelector('.modal-backdrop > div');
+
+                document.getElementById(`portrait-upload-${charIndex}`).addEventListener('change', e => {
+                    if (!e.target.files[0]) return;
+                    resizeImage(e.target.files[0], 150, 150, (dataUrl) => {
+                        AppState.party[charIndex].portrait = dataUrl;
+                        if(isOfflineMode) renderAll();
+                        saveData();
+                        modalDiv.querySelector('[data-path="portrait"]').value = 'Uploaded Image';
+                    });
+                });
+
+                modalDiv.addEventListener('input', e => {
+                    const target = e.target.closest('[data-path]');
+                    if(!target) return;
+                    const path = target.dataset.path;
+                    let value = target.type === 'number' ? parseInt(target.value) || 0 : (target.type === 'checkbox' ? target.checked : target.value);
+                    
+                    let obj = AppState.party[charIndex];
+                    const keys = path.split('.');
+                    keys.forEach((key, i) => { (i === keys.length - 1) ? obj[key] = value : obj = obj[key]; });
+
+                    if (path.includes('Override')) {
+                        const isDef = path.includes('def');
+                        const input = modalDiv.querySelector(`[data-path="${isDef ? 'def' : 'mdef'}"]`);
+                        if(input) input.disabled = !value;
+                    }
+                    if(isOfflineMode) renderAll();
+                    saveData();
+                });
+                
                 document.getElementById(`fultimator-import-${charIndex}`).addEventListener('change', e => {
                     if (!e.target.files[0]) return;
                     const reader = new FileReader();
@@ -444,13 +608,15 @@
                         if (importedChar) {
                             importedChar.id = AppState.party[charIndex].id;
                             AppState.party[charIndex] = importedChar;
-                            saveData(); playSound('confirm');
+                            if(isOfflineMode) renderAll();
+                            saveData();
+                            playSound('confirm');
                             LocalUIState.activeModal = null;
-                            renderAll();
                         }
                     };
                     reader.readAsText(e.target.files[0]);
                 });
+
             } else if (type === 'adjust-stat') {
                 const input = document.getElementById('adjust-value');
                 input.focus();
