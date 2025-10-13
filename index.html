@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fabula Ultima Party Tracker v5.5 (Alpha)</title>
+    <title>Fabula Ultima Party Tracker v5.6 (Alpha)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -64,8 +64,8 @@
         #main-view.menu-left #main-command-area { order: -1; }
         
         #party-status-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.5rem; padding: 0.5rem; flex-shrink: 0; }
-        .status-panel-compact { cursor: pointer; transition: background-color 0.2s, box-shadow 0.2s; }
-        .status-panel-compact:not(.focused):hover { background-color: #2a2a7c; }
+        .status-panel-compact { transition: background-color 0.2s, box-shadow 0.2s; }
+        .status-panel-compact:not(.focused):hover { background-color: #2a2a7c; cursor: pointer; }
         .status-panel-compact.focused { box-shadow: 0 0 0 4px #000, 0 0 10px 4px var(--text-yellow); }
         
         .status-icon { width: 20px; height: 20px; border-radius: 4px; padding: 2px; background-color: rgba(0,0,0,0.5); cursor: pointer; flex-shrink: 0; }
@@ -77,6 +77,8 @@
         .progress-bar-text { z-index: 1; text-shadow: 1px 1px 2px black; font-size: 0.8rem; }
 
         .command-menu-header { padding-bottom: 0.5rem; flex-shrink: 0; }
+        .beta-tab { padding: 0.5rem 1rem; border-bottom: 2px solid transparent; cursor: pointer; }
+        .beta-tab.active { border-color: var(--text-yellow); color: var(--text-yellow); }
         
         @media (max-width: 1024px) {
             #main-view { grid-template-columns: 1fr; }
@@ -89,7 +91,7 @@
     <!-- Session Management UI -->
     <div id="session-container" class="h-screen w-screen p-4 flex justify-center items-center">
         <div class="jrpg-window p-6 w-full max-w-md text-center">
-            <h1 class="text-2xl text-yellow-300 mb-4">Fabula Ultima Party Tracker 5.5</h1>
+            <h1 class="text-2xl text-yellow-300 mb-4">Fabula Ultima Party Tracker 5.6</h1>
             <p class="mb-6">Join a collaborative online session or use in offline mode.</p>
             <div class="space-y-4">
                 <button data-action="create-party" class="jrpg-window !p-2 action-button w-full">Create New Online Party</button>
@@ -118,7 +120,7 @@
     </div>
 
     <script>
-    // F.U. Party Tracker v5.5 (Alpha)
+    // F.U. Party Tracker v5.6 (Alpha)
     window.onload = () => {
         // --- CORE SETUP & STATE ---
         const firebaseConfig = { apiKey: "AIzaSyD73IhU0asC807BKVif9t6U9hIryDJlLNY", authDomain: "f-u-party-tracker.firebaseapp.com", projectId: "f-u-party-tracker", storageBucket: "f-u-party-tracker.appspot.com", messagingSenderId: "375233304595", appId: "1:375233304595:web:c306cc40667f84b86987e6" };
@@ -225,10 +227,18 @@
         function listenToPartyChanges() {
             unsubscribeFromParty = db.collection('parties').doc(partyId).onSnapshot(doc => {
                 if (doc.exists) {
-                    const cloudState = doc.data();
-                    AppState.party = cloudState.party || [];
-                    AppState.settings = cloudState.settings || { backgroundUrl: '' };
-                    renderAll();
+                    if (LocalUIState.activeModal?.type === 'edit-character') {
+                         // If editing, only update the background data, don't re-render everything
+                         const cloudState = doc.data();
+                         AppState.party = cloudState.party || [];
+                         AppState.settings = cloudState.settings || { backgroundUrl: '' };
+                         renderPartyStatusBar(); // Just update the background panels
+                    } else {
+                        const cloudState = doc.data();
+                        AppState.party = cloudState.party || [];
+                        AppState.settings = cloudState.settings || { backgroundUrl: '' };
+                        renderAll();
+                    }
                 } else { alert("This party session has been deleted remotely."); leaveSession(true); }
             }, error => { console.error("Firestore listener error:", error); alert("Connection to party session lost. Please refresh."); });
         }
@@ -281,7 +291,7 @@
                 const isCrisis = char.stats.hp.current <= Math.floor(char.stats.hp.max / 2);
                 
                 return `
-                <div class="jrpg-window p-2 status-panel-compact ${isFocused ? 'focused' : ''}" data-action="set-focus" data-char-index="${index}">
+                <div id="status-panel-${index}" class="jrpg-window p-2 status-panel-compact ${isFocused ? 'focused' : ''}" data-action="set-focus" data-char-index="${index}">
                     <div class="flex gap-2 items-center">
                         <img src="${char.portrait}" class="w-12 h-12 object-cover border-2 border-white flex-shrink-0" onerror="this.src='https://placehold.co/100x100/1a1a5c/ffffff?text=ERR'">
                         <div class="flex-grow min-w-0">
@@ -308,7 +318,7 @@
                         ${ATTRIBUTES.map(attr => {
                              const { die, colorClass } = getAttributeDisplayInfo(char, attr);
                              return `<div class="flex items-center justify-between">
-                                <span>${attr}: <span class="${colorClass}">${die}</span></span>
+                                <span class="attribute-display" data-attr="${attr}">${attr}: <span class="${colorClass}">${die}</span></span>
                                 ${renderStatusIcon(char, index, Object.keys(STATUS_EFFECTS).find(k => STATUS_EFFECTS[k].attr === attr))}
                             </div>`
                         }).join('')}
@@ -360,6 +370,7 @@
              else if (type === 'edit-character') { content = getEditCharacterModalContent(data); modalClass += ' max-w-2xl'; }
              else if (type === 'adjust-stat') content = getAdjustStatModalContent(data);
              else if (type === 'confirm') content = getConfirmModalContent(data);
+             else if (type === 'beta-testing') { content = getBetaTestingModalContent(); modalClass += ' max-w-4xl'; }
              else content = `<div><p>Modal: ${type}</p><button data-action="close-modal">Close</button></div>`;
              
              container.innerHTML = `<div class="modal-backdrop" data-action="close-modal-backdrop"><div class="${modalClass}" style="${modalStyle}">${content}</div></div>`;
@@ -464,7 +475,11 @@
                             ${[90, 100, 110, 125].map(s => `<button data-action="set-ui-scale" data-scale="${s}" class="jrpg-window !p-2 action-button ${LocalUIState.settings.uiScale == s ? 'bg-blue-900' : ''}">${s}%</button>`).join('')}
                         </div>
                     </div>
-                    ${inSession ? `<div class="border-t-2 border-gray-500 pt-4 grid grid-cols-1 gap-2">
+                    ${inSession ? `
+                    <div class="border-t-2 border-gray-500 pt-4 grid grid-cols-1 gap-2">
+                        <button class="jrpg-window !p-2 action-button" data-action="open-beta-menu">Beta Testing</button>
+                    </div>
+                    <div class="border-t-2 border-gray-500 pt-4 grid grid-cols-1 gap-2">
                         <button class="jrpg-window !p-2 action-button bg-red-800 w-full" data-action="reset-offline-prompt">Reset Offline Data</button>
                         ${!isOfflineMode ? `<button class="jrpg-window !p-2 action-button bg-red-800 w-full" data-action="delete-party-prompt">Delete Party For Everyone</button>`: ''}
                     </div>` : ''}
@@ -472,6 +487,7 @@
                 <div class="mt-6 text-center"><button class="jrpg-window !p-2 action-button" data-action="close-modal">Close</button></div>
             `;
         }
+        function getBetaTestingModalContent() { return `...`; }
         
         // --- HELPERS ---
         function getItemsFromPath(char, path) { let c = char.commands; for (const i of path) { if (c?.[i]?.items) { c = c[i].items; } else return []; } return c; }
@@ -523,7 +539,10 @@
             if (!target) return;
             
             const { action, charIndex, ...data } = target.dataset;
-            if (LocalUIState.activeModal && !target.closest('.modal-backdrop > div') && action !== 'close-modal-backdrop') return;
+            // Prevent clicks on background elements when a modal is open.
+            if (LocalUIState.activeModal && !target.closest('.modal-backdrop') && action !== 'close-modal-backdrop') {
+                if (!target.closest('.status-panel-compact')) return;
+            }
 
             const cIndex = parseInt(charIndex);
 
@@ -536,12 +555,34 @@
                 'go-back': () => { LocalUIState.activeMenuPaths[cIndex].pop(); renderMainCommandArea(); },
                 'go-to-path': () => { LocalUIState.activeMenuPaths[LocalUIState.focusedCharacterIndex] = []; renderMainCommandArea(); },
                 'open-system-menu': () => { LocalUIState.activeModal = {type: 'system-menu'}; renderModal(); },
+                'open-beta-menu': () => { LocalUIState.activeModal = {type: 'beta-testing', data: { activeTab: 'icons' }}; renderModal(); },
                 'toggle-edit-mode': () => { LocalUIState.isEditMode = !LocalUIState.isEditMode; renderAll(); },
                 'edit-character': () => { LocalUIState.activeModal = {type: 'edit-character', data: {char: AppState.party[cIndex], charIndex: cIndex}}; renderModal(); },
                 'close-modal': () => { LocalUIState.activeModal = null; renderAll(); },
                 'close-modal-backdrop': () => { if (e.target.classList.contains('modal-backdrop') && !['adjust-stat'].includes(LocalUIState.activeModal?.type)) actions['close-modal'](); },
                 'close-admin-panel': () => location.reload(),
-                'toggle-status': () => { AppState.party[cIndex].status[data.status] = !AppState.party[cIndex].status[data.status]; if (isOfflineMode) { renderAll(); } saveData(); },
+                'toggle-status': () => {
+                    const char = AppState.party[cIndex];
+                    char.status[data.status] = !char.status[data.status];
+                    saveData();
+                    // Targeted update to prevent flicker
+                    const panel = document.getElementById(`status-panel-${cIndex}`);
+                    if (panel) {
+                        const icon = panel.querySelector(`[data-status="${data.status}"]`);
+                        icon.classList.toggle('active', char.status[data.status]);
+                        icon.style.backgroundColor = char.status[data.status] ? STATUS_EFFECTS[data.status].color : '';
+                        
+                        // Update all attribute displays on this panel
+                        ATTRIBUTES.forEach(attr => {
+                            const { die, colorClass } = getAttributeDisplayInfo(char, attr);
+                            const attrDisplay = panel.querySelector(`.attribute-display[data-attr="${attr}"] > span`);
+                            if(attrDisplay) {
+                                attrDisplay.textContent = die;
+                                attrDisplay.className = colorClass;
+                            }
+                        });
+                    }
+                },
                 'import-fultimator': () => document.getElementById(`fultimator-import-${cIndex}`).click(),
                 'admin-join': () => { document.getElementById('party-id-input').value = data.partyId; joinParty(); },
                 'admin-delete-prompt': () => { LocalUIState.activeModal = { type: 'confirm', data: { title: 'Admin Delete Session', message: `Permanently delete session: ${data.partyId}?`, confirmAction: 'confirm-admin-delete', confirmText: 'Delete', confirmClass: 'text-red-500', partyId: data.partyId } }; renderModal(); },
@@ -581,13 +622,12 @@
                     resizeImage(e.target.files[0], 150, 150, (dataUrl) => {
                         AppState.party[charIndex].portrait = dataUrl;
                         saveData();
-                        // Manually update the UI without a full re-render
                         modalDiv.querySelector('img').src = dataUrl;
                         if (isOfflineMode) renderPartyStatusBar(); 
                     });
                 });
 
-                modalDiv.addEventListener('change', e => {
+                modalDiv.addEventListener('input', e => {
                     const target = e.target.closest('[data-path]');
                     if(!target) return;
                     
@@ -605,11 +645,9 @@
                     }
                     
                     calculateDefenses(AppState.party[charIndex]);
-
-                    // Refresh only the necessary parts
-                    if (isOfflineMode) {
-                        renderPartyStatusBar();
-                    }
+                    
+                    // Live update the background status bar without closing modal
+                    renderPartyStatusBar();
                     saveData();
                 });
                 
